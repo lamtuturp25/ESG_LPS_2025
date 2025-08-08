@@ -97,79 +97,47 @@
 <script src="layers/layers.js"></script>
 <script src="resources/qgis2web.js"></script>
 <script>
+  const map = new ol.Map({
+    target: 'map',
+    layers: [
+      new ol.layer.Tile({ source: new ol.source.OSM() })
+    ],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([112.7, -7.5]),
+      zoom: 8
+    }),
+    controls: ol.control.defaults().extend([
+      new ol.control.ScaleLine(),
+      new ol.control.Zoom()
+    ])
+  });
+
+  const overlay = new ol.Overlay({
+    element: document.getElementById('popup'),
+    autoPan: true,
+    autoPanAnimation: { duration: 250 }
+  });
+  map.addOverlay(overlay);
+  document.getElementById('popup-closer').onclick = function () {
+    overlay.setPosition(undefined);
+    this.blur();
+    return false;
+  };
+
   const kabupatenList = [
-    'Pacitan','Ponorogo','Trenggalek','Tulungagung','Blitar','KotaBlitar','Kediri','KotaKediri','Malang','KotaMalang','Lumajang','Jember','Banyuwangi','Bondowoso','Situbondo','Probolinggo','KotaProbolinggo','Pasuruan','KotaPasuruan','Sidoarjo','Mojokerto','KotaMojokerto','Jombang','Ngajuk','Madiun','KotaMadiun','Magetan','Ngawi','Bojonegoro','Tuban','Lamongan','Gresik','Bangkalan','Sampang','Pamekasan','Sumenep','Surabaya','Batu'
+    "Pacitan", "Ponorogo", "Trenggalek", "Tulungagung", "Blitar", "KotaBlitar", "Kediri", "KotaKediri",
+    "Malang", "KotaMalang", "Lumajang", "Jember", "Banyuwangi", "Bondowoso", "Situbondo", "Probolinggo",
+    "KotaProbolinggo", "Pasuruan", "KotaPasuruan", "Sidoarjo", "Mojokerto", "KotaMojokerto", "Jombang",
+    "Ngajuk", "Madiun", "KotaMadiun", "Magetan", "Ngawi", "Bojonegoro", "Tuban", "Lamongan", "Gresik",
+    "Bangkalan", "Sampang", "Pamekasan", "Sumenep", "Surabaya", "Batu"
   ];
-  const selectEl = document.getElementById('select-kabupaten');
+  const selectKabupaten = document.getElementById('select-kabupaten');
   kabupatenList.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = name;
-    selectEl.appendChild(opt);
+    selectKabupaten.appendChild(opt);
   });
-  selectEl.addEventListener('change', function() {
-    const selected = this.value;
-    map.getLayers().forEach(layer => {
-      if (layer.get('title') && layer.get('title').replace(/\s/g, '') === selected) {
-        map.getView().fit(layer.getSource().getExtent(), { duration: 1000, padding: [50,50,50,50] });
-      }
-    });
-  });
-
-  document.getElementById('search-box').addEventListener('input', function() {
-    const keyword = this.value.toLowerCase();
-    map.getLayers().forEach(layer => {
-      if (layer.getSource) {
-        layer.getSource().forEachFeature(function(f) {
-          const desa = f.get('NAMOBJ')?.toLowerCase();
-          if (desa && desa.includes(keyword)) {
-            const extent = f.getGeometry().getExtent();
-            map.getView().fit(extent, { duration: 1000, maxZoom: 14 });
-          }
-        });
-      }
-    });
-  });
-
-  map.on('pointermove', function(evt) {
-    if (evt.dragging) return;
-    map.getTargetElement().style.cursor = map.hasFeatureAtPixel(evt.pixel) ? 'pointer' : '';
-  });
-
-  map.on('singleclick', function(evt) {
-    const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
-      return feature;
-    });
-    if (feature) {
-      const props = feature.getProperties();
-      const popupContent = `
-        <b>Desa:</b> ${props.NAMOBJ}<br>
-        <b>Kecamatan:</b> ${props.WADMKC}<br>
-        <b>Kabupaten:</b> ${props.WADMKD}<br>
-        <b>Environmental:</b> ${props.E}<br>
-        <b>Social:</b> ${props.S}<br>
-        <b>Governance:</b> ${props.G}<br>
-        <b>ESG:</b> ${props.ESG}<br>
-        <b>Cluster:</b> Klaster ${parseInt(props.Cluster) + 1}
-      `;
-      document.getElementById('popup-content').innerHTML = popupContent;
-      overlay.setPosition(evt.coordinate);
-    }
-  });
-
-  // Dummy loading progress
-  let percent = 0;
-  const loadingEl = document.getElementById('loading');
-  const percentEl = document.getElementById('loading-percent');
-  loadingEl.style.display = 'block';
-  const interval = setInterval(() => {
-    percent += 10;
-    percentEl.textContent = `${percent}%`;
-    if (percent >= 100) {
-      clearInterval(interval);
-      loadingEl.style.display = 'none';
-    }
-  }, 200);
 </script>
 </body>
 </html>
