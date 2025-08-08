@@ -70,7 +70,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h2 style="margin-top:0">ESG Jawa Timur REv</h2>
+  <h2 style="margin-top:0">ESG Jawa Timur Rev1</h2>
   <label for="select-kabupaten">Pilih Kabupaten:</label>
   <select id="select-kabupaten" style="width:100%; margin-bottom:10px;"></select>
   <input id="search-box" type="text" placeholder="Cari desa..." style="width:100%; margin-bottom:20px;">
@@ -114,7 +114,7 @@
 
   const map = new ol.Map({
     target: 'map',
-    layers: [baseLayerGroup], // baseLayerGroup didefinisikan di layers.js oleh qgis2web
+    layers: layersList, // defined in layers.js
     view: new ol.View({
       center: ol.proj.fromLonLat([112.7, -7.5]),
       zoom: 8
