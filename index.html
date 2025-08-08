@@ -70,7 +70,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h2 style="margin-top:0">ESG Jawa Timur Rev1</h2>
+  <h2 style="margin-top:0">ESG Jawa Timur</h2>
   <label for="select-kabupaten">Pilih Kabupaten:</label>
   <select id="select-kabupaten" style="width:100%; margin-bottom:10px;"></select>
   <input id="search-box" type="text" placeholder="Cari desa..." style="width:100%; margin-bottom:20px;">
@@ -104,6 +104,7 @@
     "Ngajuk", "Madiun", "KotaMadiun", "Magetan", "Ngawi", "Bojonegoro", "Tuban", "Lamongan", "Gresik",
     "Bangkalan", "Sampang", "Pamekasan", "Sumenep", "Surabaya", "Batu"
   ];
+
   const selectKabupaten = document.getElementById('select-kabupaten');
   kabupatenList.forEach(name => {
     const opt = document.createElement('option');
@@ -112,9 +113,18 @@
     selectKabupaten.appendChild(opt);
   });
 
+  // Pastikan semua layer aktif
+  if (typeof layersList !== 'undefined' && Array.isArray(layersList)) {
+    layersList.forEach(layer => {
+      if (layer && typeof layer.setVisible === 'function') {
+        layer.setVisible(true);
+      }
+    });
+  }
+
   const map = new ol.Map({
     target: 'map',
-    layers: layersList, // defined in layers.js
+    layers: layersList,
     view: new ol.View({
       center: ol.proj.fromLonLat([112.7, -7.5]),
       zoom: 8
