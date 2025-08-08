@@ -70,7 +70,7 @@
 </head>
 <body>
 <div id="sidebar">
-  <h2 style="margin-top:0">ESG Jawa Timur</h2>
+  <h2 style="margin-top:0">ESG Jawa Timur REv</h2>
   <label for="select-kabupaten">Pilih Kabupaten:</label>
   <select id="select-kabupaten" style="width:100%; margin-bottom:10px;"></select>
   <input id="search-box" type="text" placeholder="Cari desa..." style="width:100%; margin-bottom:20px;">
@@ -97,11 +97,24 @@
 <script src="layers/layers.js"></script>
 <script src="resources/qgis2web.js"></script>
 <script>
+  const kabupatenList = [
+    "Pacitan", "Ponorogo", "Trenggalek", "Tulungagung", "Blitar", "KotaBlitar", "Kediri", "KotaKediri",
+    "Malang", "KotaMalang", "Lumajang", "Jember", "Banyuwangi", "Bondowoso", "Situbondo", "Probolinggo",
+    "KotaProbolinggo", "Pasuruan", "KotaPasuruan", "Sidoarjo", "Mojokerto", "KotaMojokerto", "Jombang",
+    "Ngajuk", "Madiun", "KotaMadiun", "Magetan", "Ngawi", "Bojonegoro", "Tuban", "Lamongan", "Gresik",
+    "Bangkalan", "Sampang", "Pamekasan", "Sumenep", "Surabaya", "Batu"
+  ];
+  const selectKabupaten = document.getElementById('select-kabupaten');
+  kabupatenList.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    selectKabupaten.appendChild(opt);
+  });
+
   const map = new ol.Map({
     target: 'map',
-    layers: [
-      new ol.layer.Tile({ source: new ol.source.OSM() })
-    ],
+    layers: [baseLayerGroup], // baseLayerGroup didefinisikan di layers.js oleh qgis2web
     view: new ol.View({
       center: ol.proj.fromLonLat([112.7, -7.5]),
       zoom: 8
@@ -123,21 +136,6 @@
     this.blur();
     return false;
   };
-
-  const kabupatenList = [
-    "Pacitan", "Ponorogo", "Trenggalek", "Tulungagung", "Blitar", "KotaBlitar", "Kediri", "KotaKediri",
-    "Malang", "KotaMalang", "Lumajang", "Jember", "Banyuwangi", "Bondowoso", "Situbondo", "Probolinggo",
-    "KotaProbolinggo", "Pasuruan", "KotaPasuruan", "Sidoarjo", "Mojokerto", "KotaMojokerto", "Jombang",
-    "Ngajuk", "Madiun", "KotaMadiun", "Magetan", "Ngawi", "Bojonegoro", "Tuban", "Lamongan", "Gresik",
-    "Bangkalan", "Sampang", "Pamekasan", "Sumenep", "Surabaya", "Batu"
-  ];
-  const selectKabupaten = document.getElementById('select-kabupaten');
-  kabupatenList.forEach(name => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    selectKabupaten.appendChild(opt);
-  });
 </script>
 </body>
 </html>
