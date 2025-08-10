@@ -21,7 +21,7 @@
       width: 100%;
       height: 100%;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      overflow: hidden; /* Mencegah scroll bar yang tidak perlu */
+      overflow: hidden;
     }
 
     /* Styling untuk kontrol OpenLayers bawaan */
@@ -145,9 +145,8 @@
         });
       }
       
-      // ===== BARIS YANG DIPERBAIKI ADA DI SINI =====
-      // Kita menunggu layer pertama (Pacitan_1) DAN layer terakhir (Batu_38)
-      const areAllVarsDefined = () => typeof map !== 'undefined' && typeof layer_Pacitan_1 !== 'undefined' && typeof layer_Batu_38 !== 'undefined';
+      // Menunggu map dan layer batas kabupaten siap
+      const areAllVarsDefined = () => typeof map !== 'undefined' && typeof layer_BatasKabupaten_39 !== 'undefined';
 
       waitForCondition(areAllVarsDefined).then(() => {
         console.log("Peta dasar dan semua layer telah dimuat. Menjalankan skrip kustom.");
@@ -182,88 +181,252 @@
         const popupEl = document.getElementById('popup');
         const popupContent = document.getElementById('popup-content');
         let hoverInteraction = null;
+        let clickInteraction = null;
         
         // --- SETUP POPUP & STYLE ---
-        const overlay = new ol.Overlay({ element: popupEl, autoPan: { animation: { duration: 250 } } });
+        const overlay = new ol.Overlay({ 
+          element: popupEl, 
+          autoPan: { 
+            animation: { 
+              duration: 250 
+            } 
+          } 
+        });
         map.addOverlay(overlay);
-        document.getElementById('popup-closer').onclick = () => { overlay.setPosition(undefined); return false; };
+        
+        document.getElementById('popup-closer').onclick = () => { 
+          overlay.setPosition(undefined); 
+          return false; 
+        };
 
+        // Style untuk hover yang lebih menonjol
         const highlightStyle = new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: '#ffff00', width: 3.5 }),
-            fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.4)' }),
-            zIndex: 99
+          stroke: new ol.style.Stroke({ 
+            color: '#ff0000', 
+            width: 4 
+          }),
+          fill: new ol.style.Fill({ 
+            color: 'rgba(255, 0, 0, 0.3)' 
+          }),
+          zIndex: 100
         });
         
         // --- FUNGSI UTAMA ---
-        function enableHoverOnLayer(layers) {
-            if (hoverInteraction) map.removeInteraction(hoverInteraction);
-            hoverInteraction = new ol.interaction.Select({
-                condition: ol.events.condition.pointerMove,
-                layers: Array.isArray(layers) ? layers : [layers],
-                style: highlightStyle
-            });
-            hoverInteraction.on('select', e => { map.getTargetElement().style.cursor = e.selected.length > 0 ? 'pointer' : ''; });
-            map.addInteraction(hoverInteraction);
+        function enableHoverInteraction(layers) {
+          // Hapus interaksi hover sebelumnya jika ada
+          if (hoverInteraction) {
+            map.removeInteraction(hoverInteraction);
+          }
+          
+          // Buat interaksi hover baru
+          hoverInteraction = new ol.interaction.Select({
+            condition: ol.events.condition.pointerMove,
+            layers: Array.isArray(layers) ? layers : [layers],
+            style: highlightStyle,
+            hitTolerance: 5 // Memberikan toleransi untuk mempermudah hover
+          });
+          
+          // Event ketika feature terhover
+          hoverInteraction.on('select', function(e) {
+            const mapTarget = map.getTargetElement();
+            
+            // Ubah cursor ketika hover
+            mapTarget.style.cursor = e.selected.length > 0 ? 'pointer' : '';
+            
+            // Tampilkan popup info saat hover
+            if (e.selected.length > 0) {
+              const feature = e.selected[0];
+              showFeatureInfo(feature, true);
+            } else {
+              overlay.setPosition(undefined);
+            }
+          });
+          
+          map.addInteraction(hoverInteraction);
+        }
+        
+        function enableClickInteraction(layers) {
+          // Hapus interaksi klik sebelumnya jika ada
+          if (clickInteraction) {
+            map.removeInteraction(clickInteraction);
+          }
+          
+          // Buat interaksi klik baru
+          clickInteraction = new ol.interaction.Select({
+            condition: ol.events.condition.click,
+            layers: Array.isArray(layers) ? layers : [layers],
+            style: highlightStyle
+          });
+          
+          // Event ketika feature diklik
+          clickInteraction.on('select', function(e) {
+            if (e.selected.length > 0) {
+              const feature = e.selected[0];
+              showFeatureInfo(feature, false);
+            } else {
+              overlay.setPosition(undefined);
+            }
+          });
+          
+          map.addInteraction(clickInteraction);
+        }
+        
+        function showFeatureInfo(feature, isHover) {
+          const props = feature.getProperties();
+          const name = props['NAMOBJ'] || props['NAME_3'] || props['NAMA_DESA'] || props['NAME_2'];
+          const kabupaten = props['NAME_2'] || '-';
+          
+          popupContent.innerHTML = `
+            <strong>Desa/Kel:</strong> ${name || '-'}<br>
+            <strong>Kab/Kota:</strong> ${kabupaten}
+          `;
+          
+          // Dapatkan koordinat tengah feature
+          const geometry = feature.getGeometry();
+          let coord;
+          
+          if (geometry.getType() === 'Polygon' || geometry.getType() === 'MultiPolygon') {
+            coord = ol.extent.getCenter(geometry.getExtent());
+          } else {
+            coord = geometry.getCoordinates();
+          }
+          
+          overlay.setPosition(coord);
+          
+          // Jika ini hover (bukan klik), atur timeout untuk menyembunyikan popup
+          if (isHover) {
+            clearTimeout(window.hoverTimeout);
+            window.hoverTimeout = setTimeout(() => {
+              overlay.setPosition(undefined);
+            }, 2000);
+          }
         }
 
         function resetMapView() {
-            allKabupatenLayers.forEach(lyr => lyr.setVisible(true));
-            layer_BatasKabupaten_39.setVisible(true);
-
-            const combinedExtent = kabSelect.options[0].extent;
-            if (combinedExtent) map.getView().fit(combinedExtent, { padding: [50, 50, 50, 50], duration: 500 });
-            
-            enableHoverOnLayer(allKabupatenLayers);
-            overlay.setPosition(undefined);
-            kabSelect.value = '';
-            searchInput.value = '';
+          // Tampilkan semua layer kabupaten
+          allKabupatenLayers.forEach(lyr => lyr.setVisible(true));
+          layer_BatasKabupaten_39.setVisible(true);
+          
+          // Reset ke view awal
+          const combinedExtent = kabSelect.options[0].extent;
+          if (combinedExtent) {
+            map.getView().fit(combinedExtent, { 
+              padding: [50, 50, 50, 50], 
+              duration: 500 
+            });
+          }
+          
+          // Aktifkan hover untuk semua layer
+          enableHoverInteraction(allKabupatenLayers);
+          enableClickInteraction(allKabupatenLayers);
+          
+          // Reset form
+          overlay.setPosition(undefined);
+          kabSelect.value = '';
+          searchInput.value = '';
         }
 
         // --- INISIALISASI KONTROL & PETA ---
         let combinedExtent = ol.extent.createEmpty();
-        kabupatenData.forEach((item, index) => {
-            const opt = document.createElement('option');
-            opt.value = index;
-            opt.textContent = item.name;
-            const extent = item.layer.getSource().getExtent();
-            if (extent && !ol.extent.isEmpty(extent)) {
-                opt.extent = extent;
-                ol.extent.extend(combinedExtent, extent);
-            }
-            kabSelect.appendChild(opt);
-        });
-        if (!ol.extent.isEmpty(combinedExtent)) kabSelect.options[0].extent = combinedExtent;
         
-        resetMapView(); // Atur tampilan awal
+        // Isi dropdown kabupaten
+        kabupatenData.forEach((item, index) => {
+          const opt = document.createElement('option');
+          opt.value = index;
+          opt.textContent = item.name;
+          const extent = item.layer.getSource().getExtent();
+          
+          if (extent && !ol.extent.isEmpty(extent)) {
+            opt.extent = extent;
+            ol.extent.extend(combinedExtent, extent);
+          }
+          
+          kabSelect.appendChild(opt);
+        });
+        
+        if (!ol.extent.isEmpty(combinedExtent)) {
+          kabSelect.options[0].extent = combinedExtent;
+        }
+        
+        // Atur tampilan awal
+        resetMapView();
 
         // --- EVENT LISTENERS ---
         kabSelect.addEventListener('change', function() {
-            const selectedIndex = this.value;
-            if (selectedIndex === '') {
-                resetMapView();
-                return;
-            }
-            const idx = parseInt(selectedIndex, 10);
-            const selectedItem = kabupatenData[idx];
-            allKabupatenLayers.forEach((lyr, i) => lyr.setVisible(i === idx));
-            const extent = this.options[this.selectedIndex].extent;
-            if (extent) map.getView().fit(extent, { padding: [50, 50, 50, 50], maxZoom: 12, duration: 500 });
-            enableHoverOnLayer(selectedItem.layer);
-            overlay.setPosition(undefined);
+          const selectedIndex = this.value;
+          
+          if (selectedIndex === '') {
+            resetMapView();
+            return;
+          }
+          
+          const idx = parseInt(selectedIndex, 10);
+          const selectedItem = kabupatenData[idx];
+          
+          // Sembunyikan semua layer kecuali yang dipilih
+          allKabupatenLayers.forEach((lyr, i) => lyr.setVisible(i === idx));
+          
+          // Zoom ke kabupaten yang dipilih
+          const extent = this.options[this.selectedIndex].extent;
+          if (extent) {
+            map.getView().fit(extent, { 
+              padding: [50, 50, 50, 50], 
+              maxZoom: 12, 
+              duration: 500 
+            });
+          }
+          
+          // Aktifkan hover hanya untuk layer yang dipilih
+          enableHoverInteraction(selectedItem.layer);
+          enableClickInteraction(selectedItem.layer);
+          
+          overlay.setPosition(undefined);
         });
 
         resetButton.addEventListener('click', resetMapView);
         
-        map.on('singleclick', function(evt){
-            let feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => (allKabupatenLayers.includes(l) && l.getVisible() ? f : null));
-            if (feature) {
-                const props = feature.getProperties();
-                const name = props['NAMOBJ'] || props['NAME_3'] || props['NAMA_DESA'] || props['NAME_2'];
-                popupContent.innerHTML = `<strong>Desa/Kel:</strong> ${name || '-'}<br><strong>Kab/Kota:</strong> ${props['NAME_2'] || '-'}`;
-                overlay.setPosition(evt.coordinate);
-            } else {
-                overlay.setPosition(undefined);
+        // Handle pencarian desa
+        searchInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            const searchTerm = this.value.trim().toLowerCase();
+            
+            if (!searchTerm) {
+              return;
             }
+            
+            let foundFeature = null;
+            let foundLayer = null;
+            
+            // Cari di semua layer kabupaten yang visible
+            allKabupatenLayers.forEach(layer => {
+              if (!layer.getVisible()) return;
+              
+              layer.getSource().forEachFeature(feature => {
+                const props = feature.getProperties();
+                const name = (props['NAMOBJ'] || props['NAME_3'] || props['NAMA_DESA'] || '').toLowerCase();
+                
+                if (name.includes(searchTerm)) {
+                  foundFeature = feature;
+                  foundLayer = layer;
+                }
+              });
+            });
+            
+            if (foundFeature && foundLayer) {
+              // Zoom ke feature yang ditemukan
+              const extent = foundFeature.getGeometry().getExtent();
+              map.getView().fit(extent, {
+                padding: [50, 50, 50, 50],
+                duration: 500,
+                maxZoom: 14
+              });
+              
+              // Tampilkan info
+              showFeatureInfo(foundFeature, false);
+            } else {
+              alert('Desa tidak ditemukan!');
+            }
+          }
         });
 
       }).catch(err => {
