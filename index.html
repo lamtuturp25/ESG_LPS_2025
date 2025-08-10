@@ -1,26 +1,23 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Peta ESG — Popup, Hover, Dropdown (robust)</title>
-
-<!-- CSS qgis2web / OpenLayers -->
+<title>Peta ESG dengan Popup & Hover</title>
 <link rel="stylesheet" href="./resources/ol.css">
 <link rel="stylesheet" href="./resources/qgis2web.css">
-
 <style>
-html, body { margin:0; padding:0; height:100%; }
-#map { width:100%; height:100vh; }
+html, body { margin:0; padding:0; }
+#map { width: 100%; height: 100vh; }
 
 /* Popup */
 .ol-popup {
     position: absolute;
-    background: #fff;
+    background-color: white;
     padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    min-width: 220px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    border: 1px solid #cccccc;
+    bottom: 12px;
+    left: -50px;
+    min-width: 200px;
 }
 .ol-popup:after, .ol-popup:before {
     top: 100%;
@@ -32,13 +29,13 @@ html, body { margin:0; padding:0; height:100%; }
     pointer-events: none;
 }
 .ol-popup:after {
-    border-top-color: #fff;
+    border-top-color: white;
     border-width: 10px;
     left: 48px;
     margin-left: -10px;
 }
 .ol-popup:before {
-    border-top-color: #ccc;
+    border-top-color: #cccccc;
     border-width: 11px;
     left: 48px;
     margin-left: -11px;
@@ -47,32 +44,28 @@ html, body { margin:0; padding:0; height:100%; }
     text-decoration: none;
     position: absolute;
     top: 2px;
-    right: 6px;
-    font-weight: bold;
+    right: 8px;
 }
 
-/* Hover highlight fallback style (used by script) */
-.highlight-style {
+/* Hover style */
+.hover-feature {
     stroke: #ffff00;
     stroke-width: 2;
-    fill: rgba(255,255,0,0.25);
+    fill: rgba(255,255,0,0.3);
 }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
-<!-- Popup element -->
-<div id="popup" class="ol-popup" style="display:block;">
-    <a href="#" id="popup-closer" class="ol-popup-closer">×</a>
+<!-- Popup -->
+<div id="popup" class="ol-popup">
+    <a href="#" id="popup-closer" class="ol-popup-closer"></a>
     <div id="popup-content"></div>
 </div>
 
-<!-- === library & qgis2web files === -->
+<!-- JS bawaan qgis2web -->
 <script src="./resources/ol.js"></script>
-<script src="./resources/qgis2web_expressions.js"></script>
-
-<!-- ALL layer files (sesuaikan jika ada yang beda nama / path) -->
 <script src="layers/Pacitan_1.js"></script>
 <script src="layers/Ponorogo_2.js"></script>
 <script src="layers/Trenggalek_3.js"></script>
@@ -113,198 +106,81 @@ html, body { margin:0; padding:0; height:100%; }
 <script src="layers/Batu_38.js"></script>
 <script src="layers/BatasKabupaten_39.js"></script>
 <script src="./layers/layers.js"></script>
-
-<!-- qgis2web main export (buat map & controls) -->
 <script src="./resources/qgis2web.js"></script>
 
-<!-- === custom robust init script === -->
+<!-- Popup & Hover Activation -->
 <script>
-/*
-  Strategi:
-  1) tunggu hingga window.map terdefinisi (polling, timeout)
-  2) apabila layersList undefined, fallback ke map.getLayers()
-  3) buat overlay popup & highlight layer (clone fitur) tanpa merusak style asli
-  4) tambahkan logging untuk debugging (lihat console)
-*/
-
-(function() {
-    function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
-
-    async function waitForMap(timeout = 8000) {
-        const step = 100;
-        let waited = 0;
-        while (typeof window.map === 'undefined') {
-            if (waited >= timeout) break;
-            await sleep(step);
-            waited += step;
-        }
-        return typeof window.map !== 'undefined';
+window.addEventListener("load", function() {
+    if (typeof map === "undefined" || typeof layersList === "undefined") {
+        alert("❌ map/layersList tidak ditemukan. Pastikan qgis2web.js membuatnya global.");
+        return;
     }
 
-    // main
-    (async function init() {
-        console.log("[init] menunggu map dibuat oleh qgis2web.js ...");
-        const ok = await waitForMap(10000); // tunggu hingga 10s
-        if (!ok) {
-            console.error("[init] TIMEOUT: 'map' tidak terdefinisi. Periksa apakah qgis2web.js berhasil dimuat (404 di Network?).");
-            alert("❌ map tidak ditemukan. Cek console (F12) dan pastikan semua file qgis2web (layers/*.js, layers/layers.js, resources/qgis2web.js) ter-load.");
-            return;
-        }
-        console.log("[init] map terdeteksi.", window.map);
+    // === Popup ===
+    var container = document.getElementById('popup');
+    var content = document.getElementById('popup-content');
+    var closer = document.getElementById('popup-closer');
 
-        // cari layersList — jika tidak ada, fallback ke map.getLayers()
-        var layersArray = null;
-        if (typeof window.layersList !== 'undefined' && Array.isArray(window.layersList)) {
-            layersArray = window.layersList;
-            console.log("[init] menggunakan global layersList (panjang):", layersArray.length);
+    var overlay = new ol.Overlay({
+        element: container,
+        autoPan: { animation: { duration: 250 } }
+    });
+    map.addOverlay(overlay);
+
+    closer.onclick = function() {
+        overlay.setPosition(undefined);
+        closer.blur();
+        return false;
+    };
+
+    map.on('singleclick', function(evt) {
+        var feature = map.forEachFeatureAtPixel(evt.pixel, function(f) { return f; });
+        if (feature) {
+            var props = feature.getProperties();
+            var desa = props['WADMKD'] || '-';
+            var kabupaten = props['WADMKK'] || '-';
+            var e = props['E'] || '-';
+            var s = props['S'] || '-';
+            var g = props['G'] || '-';
+            var esg = props['ESG'] || '-';
+            var clusterNum = props['Cluster'] !== undefined ? props['Cluster'] + 1 : '-';
+            var clusterName = (clusterNum == 1) ? "Klaster 1" :
+                              (clusterNum == 2) ? "Klaster 2" :
+                              (clusterNum == 3) ? "Klaster 3" : "-";
+
+            content.innerHTML = `
+                <b>Desa:</b> ${desa}<br>
+                <b>Kabupaten:</b> ${kabupaten}<br>
+                <b>E:</b> ${e}<br>
+                <b>S:</b> ${s}<br>
+                <b>G:</b> ${g}<br>
+                <b>ESG:</b> ${esg}<br>
+                <b>Klaster:</b> ${clusterName}
+            `;
+            overlay.setPosition(evt.coordinate);
         } else {
-            try {
-                var mapLayers = map.getLayers && map.getLayers().getArray ? map.getLayers().getArray() : null;
-                if (mapLayers) {
-                    layersArray = mapLayers;
-                    console.warn("[init] layersList global TIDAK ditemukan — fallback menggunakan map.getLayers().getArray().");
-                    console.log("[init] map.getLayers().length =", layersArray.length);
-                }
-            } catch (e) {
-                console.error("[init] error saat baca map.getLayers():", e);
-            }
-        }
-
-        if (!layersArray) {
-            console.warn("[init] Tidak ditemukan daftar layer. Dropdown/kontrol layer mungkin tidak berfungsi.");
-            // lanjutkan saja — kita masih bisa ikat event ke peta (forEachFeatureAtPixel)
-        }
-
-        // ambil elemen popup
-        var container = document.getElementById('popup');
-        var content = document.getElementById('popup-content');
-        var closer = document.getElementById('popup-closer');
-
-        // buat overlay popup (jika belum ada)
-        var overlay = new ol.Overlay({
-            element: container,
-            autoPan: { animation: { duration: 250 } }
-        });
-        map.addOverlay(overlay);
-
-        closer.onclick = function() {
             overlay.setPosition(undefined);
-            closer.blur();
-            return false;
-        };
+        }
+    });
 
-        // Popup on single click (gunakan hitTolerance kecil agar klik korreksi ketebalan garis)
-        map.on('singleclick', function(evt) {
-            try {
-                var feature = map.forEachFeatureAtPixel(evt.pixel,
-                    function(f, layer) { return f; },
-                    { hitTolerance: 6 } // toleransi piksel, bisa dinaikkan jika fitur tipis
-                );
-
-                if (!feature) {
-                    overlay.setPosition(undefined);
-                    return;
-                }
-
-                // Ambil properti dengan aman
-                var props = feature.getProperties ? feature.getProperties() : {};
-                var desa = props['WADMKD'] || props['WADM_KD'] || '-';
-                var kab = props['WADMKK'] || props['WADM_KK'] || props['WADM_KAB'] || '-';
-                var e = props['E'] !== undefined ? props['E'] : (props['ENV'] || '-');
-                var s = props['S'] !== undefined ? props['S'] : (props['SOC'] || '-');
-                var g = props['G'] !== undefined ? props['G'] : (props['GOV'] || '-');
-                var esg = props['ESG'] || '-';
-                var clusterNum = (props['Cluster'] !== undefined) ? (props['Cluster'] + 1) : (props['cluster'] !== undefined ? (props['cluster']+1) : '-');
-                var clusterName = (clusterNum == 1) ? "Klaster 1" :
-                                  (clusterNum == 2) ? "Klaster 2" :
-                                  (clusterNum == 3) ? "Klaster 3" : "-";
-
-                content.innerHTML = `
-                    <b>Desa:</b> ${desa}<br>
-                    <b>Kabupaten:</b> ${kab}<br>
-                    <b>E:</b> ${e}<br>
-                    <b>S:</b> ${s}<br>
-                    <b>G:</b> ${g}<br>
-                    <b>ESG:</b> ${esg}<br>
-                    <b>Klaster:</b> ${clusterName}
-                `;
-                overlay.setPosition(evt.coordinate);
-            } catch (err) {
-                console.error("[popup] error:", err);
-            }
-        });
-
-        // === Hover highlight (pakai layer highlight terpisah, clone feature supaya tidak merusak) ===
-        var hoverStyle = new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: '#ffff00', width: 2 }),
-            fill: new ol.style.Fill({ color: 'rgba(255,255,0,0.25)' })
-        });
-
-        // create highlight layer/source
-        var highlightSource = new ol.source.Vector();
-        var highlightLayer = new ol.layer.Vector({
-            source: highlightSource,
-            map: map,
-            updateWhileAnimating: true,
-            updateWhileInteracting: true,
-            // gunakan style function agar style konsisten
-            style: function() { return hoverStyle; }
-        });
-
-        var lastFeatureUid = null;
-
-        map.on('pointermove', function(evt) {
-            try {
-                if (evt.dragging) {
-                    // while panning, jangan highlight
-                    return;
-                }
-                var pixel = evt.pixel;
-                var hit = map.forEachFeatureAtPixel(pixel,
-                    function(f, layer) { return { feature: f, layer: layer }; },
-                    { hitTolerance: 6 }
-                );
-
-                // clear previous highlight
-                highlightSource.clear();
-                map.getTargetElement().style.cursor = '';
-
-                if (hit && hit.feature) {
-                    var f = hit.feature;
-                    // guard: jika sama feature (uid) tetap biarkan, tapi kita clear & clone anyway
-                    try {
-                        var clone = f.clone ? f.clone() : f.clone && f.clone(); // safe
-                        if (!clone) {
-                            // jika clone tidak ada, buat fitur baru dari geometry
-                            clone = new ol.Feature({ geometry: f.getGeometry().clone() });
-                        } else {
-                            // pastikan properties tetap ada (clone biasanya sudah bawa)
-                        }
-                        highlightSource.addFeature(clone);
-                        map.getTargetElement().style.cursor = 'pointer';
-                    } catch (e) {
-                        console.warn("[hover] gagal clone feature, menambahkan geometry baru:", e);
-                        try {
-                            var geom = f.getGeometry();
-                            if (geom) {
-                                var tmp = new ol.Feature({ geometry: geom.clone() });
-                                highlightSource.addFeature(tmp);
-                                map.getTargetElement().style.cursor = 'pointer';
-                            }
-                        } catch (ee) {
-                            console.error("[hover] error fallback:", ee);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("[hover] error:", err);
-            }
-        });
-
-        console.log("[init] popup & hover diinisialisasi. Cek console untuk pesan lain.");
-    })();
-
-})();
+    // === Hover ===
+    var hoverStyle = new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: '#ffff00', width: 2 }),
+        fill: new ol.style.Fill({ color: 'rgba(255,255,0,0.3)' })
+    });
+    var highlight;
+    map.on('pointermove', function(evt) {
+        if (highlight) {
+            highlight.setStyle(undefined);
+            highlight = null;
+        }
+        var feature = map.forEachFeatureAtPixel(evt.pixel, function(f) { return f; });
+        if (feature) {
+            highlight = feature;
+            feature.setStyle(hoverStyle);
+        }
+    });
+});
 </script>
 </body>
 </html>
