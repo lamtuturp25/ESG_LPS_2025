@@ -50,11 +50,12 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-      max-width: 100vw;
+      max-width: calc(100vw - 40px);
     }
     label {
       font-size: 13px;
       font-weight: 600;
+      white-space: nowrap;
     }
     select, input, button {
       padding: 6px 10px;
@@ -63,17 +64,39 @@
       border-radius: 4px;
       font-family: inherit;
       outline: none;
+      min-width: 150px;
     }
     select:hover, input:hover, button:hover {
       border-color: #888;
     }
+    select:focus, input:focus {
+      border-color: #0066cc;
+      box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+    }
     button {
       cursor: pointer;
       background-color: #eee;
-      transition: background-color 0.2s;
+      transition: all 0.2s;
+      white-space: nowrap;
     }
     button:hover {
       background-color: #ddd;
+      border-color: #999;
+    }
+    button:active {
+      background-color: #ccc;
+    }
+
+    /* Dropdown styling */
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 14px;
+      padding-right: 30px;
     }
 
     /* Popup */
@@ -118,6 +141,7 @@
       font-weight: bold;
       font-size: 18px;
       color: #aaa;
+      cursor: pointer;
     }
     .ol-popup-closer:hover {
       color: #000;
@@ -129,7 +153,7 @@
   <!-- Top controls -->
   <div id="topbar">
     <label for="kabupatenSelect">Pilih Kabupaten/Kota:</label>
-    <select id="kabupatenSelect"><option value="">-- Memuat... --</option></select>
+    <select id="kabupatenSelect"><option value="">-- Semua Kabupaten --</option></select>
 
     <label for="searchDesa">Cari Desa:</label>
     <input id="searchDesa" placeholder="ketik nama desa lalu Enter" />
@@ -341,7 +365,7 @@
 
         // Fill dropdown kabupaten
         const kabSelect = document.getElementById('kabupatenSelect');
-        kabSelect.innerHTML = '';
+        kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
         kabupatenLayers.forEach((lyr, i)=>{
           let title = lyr.get('title') || lyr.get('name') || `Kabupaten ${i+1}`;
           let opt = document.createElement('option');
@@ -355,9 +379,10 @@
         function enableHoverOnLayer(layer){
           if(hoverInteraction) map.removeInteraction(hoverInteraction);
           if(!layer) return;
+          
           hoverInteraction = new ol.interaction.Select({
             condition: ol.events.condition.pointerMove,
-            layers: [layer],
+            layers: Array.isArray(layer) ? layer : [layer],
             style: new ol.style.Style({
               stroke: new ol.style.Stroke({
                 color: 'yellow',
@@ -369,12 +394,19 @@
             })
           });
           map.addInteraction(hoverInteraction);
+          
+          // Add hover style for touch devices
+          hoverInteraction.on('select', function(e) {
+            if (e.selected.length > 0) {
+              document.getElementById('map').style.cursor = 'pointer';
+            } else {
+              document.getElementById('map').style.cursor = '';
+            }
+          });
         }
 
-        // Set initial hover on all kabupaten layers combined by making a temporary group layer?
-        // But simpler: for initial, enable hover on all kabupaten layers at once
-        // Because ol.interaction.Select supports multiple layers
-        enableHoverOnLayer(new ol.layer.Group({ layers: kabupatenLayers }));
+        // Set initial hover on all kabupaten layers
+        enableHoverOnLayer(kabupatenLayers);
 
         // Popup overlay
         const popupEl = document.getElementById('popup');
@@ -431,8 +463,20 @@
               lyr.setVisible(true);
             });
             batasKabupatenLayer.setOpacity(1);
-            map.getView().setZoom(7);
-            map.getView().setCenter([11250000, -720000]);
+            // Zoom to initial view
+            try {
+              let combinedExtent = ol.extent.createEmpty();
+              kabupatenLayers.forEach(lyr=>{
+                const ext = lyr.getSource().getExtent();
+                if(ext && !ol.extent.isEmpty(ext)) ol.extent.extend(combinedExtent, ext);
+              });
+              map.getView().fit(combinedExtent, {padding:[40,40,40,40], maxZoom: 9, duration: 700});
+            } catch(e){
+              console.warn('Gagal set extent gabungan kabupaten', e);
+            }
+            
+            // Enable hover on all layers
+            enableHoverOnLayer(kabupatenLayers);
             return;
           }
           idx = Number(idx);
@@ -503,9 +547,18 @@
             lyr.setOpacity(1);
           });
           batasKabupatenLayer.setOpacity(1);
-          map.getView().setZoom(7);
-          map.getView().setCenter([11250000, -720000]);
-          enableHoverOnLayer(new ol.layer.Group({ layers: kabupatenLayers }));
+          // Zoom to initial view
+          try {
+            let combinedExtent = ol.extent.createEmpty();
+            kabupatenLayers.forEach(lyr=>{
+              const ext = lyr.getSource().getExtent();
+              if(ext && !ol.extent.isEmpty(ext)) ol.extent.extend(combinedExtent, ext);
+            });
+            map.getView().fit(combinedExtent, {padding:[40,40,40,40], maxZoom: 9, duration: 700});
+          } catch(e){
+            console.warn('Gagal set extent gabungan kabupaten', e);
+          }
+          enableHoverOnLayer(kabupatenLayers);
           overlay.setPosition(undefined);
           popupEl.style.display = 'none';
           kabSelect.value = '';
