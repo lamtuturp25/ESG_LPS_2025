@@ -21,7 +21,7 @@
     button { cursor: pointer; }
     /* Popup */
     .ol-popup { position: absolute; background-color: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid #cccccc; bottom: 12px; left: -50px; min-width: 280px; font-size: 14px; }
-    .ol-popup-closer { text-decoration: none; position: absolute; top: 2px; right: 8px; }
+    .ol-popup-closer { text-decoration: none; position: absolute; top: 2px; right: 8px; font-weight: bold; }
     #popup-content { line-height: 1.8; }
   </style>
   <title>Peta Interaktif Jawa Timur</title>
@@ -54,42 +54,51 @@
   <script src="./resources/qgis2web.js"></script>
   
   <!-- ===================================================================== -->
-  <!-- ==========         SKRIP KUSTOM (LOGIKA OTOMATIS)       ========== -->
+  <!-- ==========         SKRIP KUSTOM (LOGIKA BARU & STABIL)     ========== -->
   <!-- ===================================================================== -->
   <script>
     function initializeCustomFeatures() {
         console.log("Peta siap. Memulai skrip kustom.");
 
+        // DAFTAR NAMA INI HARUS SAMA PERSIS DENGAN JUDUL LAYER DI QGIS
+        const targetLayerTitles = [
+            'Pacitan', 'Ponorogo', 'Trenggalek', 'Tulungagung', 'Blitar', 'KotaBlitar',
+            'Kediri', 'KotaKediri', 'Malang', 'KotaMalang', 'Lumajang', 'Jember',
+            'Banyuwangi', 'Bondowoso', 'Situbondo', 'Probolinggo', 'KotaProbolinggo',
+            'Pasuruan', 'KotaPasuruan', 'Sidoarjo', 'Mojokerto', 'KotaMojokerto',
+            'Jombang', 'Ngajuk', 'Madiun', 'KotaMadiun', 'Magetan', 'Ngawi',
+            'Bojonegoro', 'Tuban', 'Lamongan', 'Gresik', 'Bangkalan', 'Sampang',
+            'Pamekasan', 'Sumenep', 'Surabaya', 'Batu'
+        ];
+        
         const kabSelect = document.getElementById('kabupatenSelect');
         const resetButton = document.getElementById('btnReset');
-        const allMapLayers = map.getLayers().getArray();
-        let kabupatenLayers = []; // Hanya untuk menyimpan layer-layer kabupaten
-        let daftarNamaKabupaten = []; // Daftar nama resmi dari peta
+        
+        // Filter semua layer di peta untuk mendapatkan HANYA layer kabupaten yang kita inginkan
+        const kabupatenLayers = map.getLayers().getArray().filter(layer => 
+            targetLayerTitles.includes(layer.get('title'))
+        );
 
-        // --- 1. MEMBANGUN DAFTAR DROPDOWN SECARA OTOMATIS ---
-        console.log("Membaca layer dari peta untuk membangun dropdown...");
-        allMapLayers.forEach(layer => {
-            const title = layer.get('title');
-            // Kita anggap semua layer vektor selain 'BatasKabupaten' adalah layer kabupaten
-            if (title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector) {
-                kabupatenLayers.push(layer);
-                daftarNamaKabupaten.push(title);
-            }
-        });
+        if (kabupatenLayers.length === 0) {
+            console.error("Tidak ada layer kabupaten yang ditemukan. Periksa daftar 'targetLayerTitles'.");
+            kabSelect.innerHTML = '<option>Error: Layer tidak ditemukan</option>';
+            return;
+        }
 
-        // Urutkan nama secara alfabet
-        daftarNamaKabupaten.sort();
-
+        // --- 1. Mengisi Dropdown ---
         kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
-        daftarNamaKabupaten.forEach(namaAsli => {
-            const opt = document.createElement('option');
-            opt.value = namaAsli;
-            opt.textContent = namaAsli.replace(/([A-Z])/g, ' $1').trim(); 
-            kabSelect.appendChild(opt);
-        });
-        console.log(`Dropdown berhasil diisi dengan ${daftarNamaKabupaten.length} kabupaten/kota.`);
+        // Urutkan berdasarkan nama sebelum ditampilkan
+        kabupatenLayers.sort((a, b) => a.get('title').localeCompare(b.get('title')))
+            .forEach(layer => {
+                const title = layer.get('title');
+                const opt = document.createElement('option');
+                opt.value = title;
+                opt.textContent = title.replace(/([A-Z])/g, ' $1').trim(); 
+                kabSelect.appendChild(opt);
+            });
+        console.log(`Dropdown berhasil diisi dengan ${kabupatenLayers.length} kabupaten/kota.`);
 
-        // --- 2. FUNGSI UNTUK MENGONTROL PETA ---
+        // --- 2. Fungsi untuk Mengontrol Peta ---
         function setLayerVisibility(selectedTitle) {
             let targetLayer = null;
             kabupatenLayers.forEach(layer => {
@@ -105,7 +114,7 @@
             kabSelect.value = '';
         }
 
-        // --- 3. MEMBERI PERINTAH PADA TOMBOL DAN DROPDOWN ---
+        // --- 3. Memberi Perintah pada Tombol dan Dropdown ---
         kabSelect.addEventListener('change', function() {
             const selectedName = this.value;
             if (selectedName === '') {
@@ -121,24 +130,41 @@
             }
         });
         resetButton.addEventListener('click', resetMapView);
+
+        // --- 4. Fungsionalitas Hover dan Popup ---
+        // (Kode ini sama seperti versi sebelumnya yang sudah benar)
+        const popupContainer = document.getElementById('popup');
+        const popupContent = document.getElementById('popup-content');
+        const popupCloser = document.getElementById('popup-closer');
+        const overlay = new ol.Overlay({ element: popupContainer, autoPan: true, autoPanAnimation: { duration: 250 } });
+        map.addOverlay(overlay);
+        popupCloser.onclick = function() { overlay.setPosition(undefined); popupCloser.blur(); return false; };
+
+        let selected = null;
+        const highlightStyle = new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
+            fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
+        });
+
+        map.on('pointermove', function(e) {
+            if (e.dragging) return;
+            if (selected !== null) { selected.setStyle(undefined); selected = null; }
+            map.forEachFeatureAtPixel(e.pixel, function(f) {
+                selected = f;
+                f.setStyle(highlightStyle);
+                return true;
+            });
+            map.getTargetElement().style.cursor = selected ? 'pointer' : '';
+        });
     };
 
     // --- MEKANISME PALING STABIL UNTUK MENUNGGU PETA SIAP ---
     const mapReadyCheck = setInterval(function() {
         if (typeof map !== 'undefined' && typeof ol !== 'undefined') {
-            clearInterval(mapReadyCheck); // Hentikan pengecekan
-            initializeCustomFeatures(); // Jalankan fungsi utama kita
+            clearInterval(mapReadyCheck);
+            initializeCustomFeatures();
         }
     }, 100);
-
-    // --- DIAGNOSIS JIKA PETA GAGAL TOTAL ---
-    setTimeout(function() {
-        if (typeof map === 'undefined') {
-            clearInterval(mapReadyCheck);
-            console.error("GAGAL TOTAL: Peta tidak berhasil dimuat setelah 5 detik.");
-            alert("Peta gagal dimuat. Periksa Konsol (F12) dan tab Network untuk mencari file yang gagal dimuat (error 404).");
-        }
-    }, 5000);
   </script>
 </body>
 </html>
