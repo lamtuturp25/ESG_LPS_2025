@@ -18,6 +18,9 @@ html, body { margin:0; padding:0; }
     bottom: 12px;
     left: -50px;
     min-width: 200px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    border-radius: 4px;
+    pointer-events: auto; /* penting agar klik di popup bisa */
 }
 .ol-popup:after, .ol-popup:before {
     top: 100%;
@@ -45,6 +48,10 @@ html, body { margin:0; padding:0; }
     position: absolute;
     top: 2px;
     right: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+    cursor: pointer;
 }
 
 /* Hover style */
@@ -59,8 +66,8 @@ html, body { margin:0; padding:0; }
 <div id="map"></div>
 
 <!-- Popup -->
-<div id="popup" class="ol-popup">
-    <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+<div id="popup" class="ol-popup" style="display:none;">
+    <a href="#" id="popup-closer" class="ol-popup-closer">&#215;</a>
     <div id="popup-content"></div>
 </div>
 
@@ -108,7 +115,6 @@ html, body { margin:0; padding:0; }
 <script src="./layers/layers.js"></script>
 <script src="./resources/qgis2web.js"></script>
 
-<!-- Popup & Hover Activation -->
 <script>
 window.addEventListener("load", function() {
     if (typeof map === "undefined" || typeof layersList === "undefined") {
@@ -123,12 +129,15 @@ window.addEventListener("load", function() {
 
     var overlay = new ol.Overlay({
         element: container,
-        autoPan: { animation: { duration: 250 } }
+        autoPan: { animation: { duration: 250 } },
+        autoPanMargin: 20
     });
     map.addOverlay(overlay);
 
-    closer.onclick = function() {
+    closer.onclick = function(evt) {
+        evt.preventDefault();
         overlay.setPosition(undefined);
+        container.style.display = "none";
         closer.blur();
         return false;
     };
@@ -157,29 +166,42 @@ window.addEventListener("load", function() {
                 <b>ESG:</b> ${esg}<br>
                 <b>Klaster:</b> ${clusterName}
             `;
+            container.style.display = "block";
             overlay.setPosition(evt.coordinate);
         } else {
             overlay.setPosition(undefined);
+            container.style.display = "none";
         }
     });
 
     // === Hover ===
     var hoverStyle = new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: '#ffff00', width: 2 }),
+        stroke: new ol.style.Stroke({ color: '#ffff00', width: 3 }),
         fill: new ol.style.Fill({ color: 'rgba(255,255,0,0.3)' })
     });
-    var highlight;
+
+    var highlightedFeature;
+    var originalStyle;
+
     map.on('pointermove', function(evt) {
-        if (highlight) {
-            highlight.setStyle(undefined);
-            highlight = null;
+        if (highlightedFeature) {
+            // Kembalikan style asli fitur yang sudah dihover sebelumnya
+            highlightedFeature.setStyle(originalStyle);
+            highlightedFeature = null;
+            originalStyle = null;
         }
-        var feature = map.forEachFeatureAtPixel(evt.pixel, function(f) { return f; });
+        if (evt.dragging) return;  // Jangan hover saat drag peta
+
+        var pixel = evt.pixel;
+        var feature = map.forEachFeatureAtPixel(pixel, function(f) { return f; });
+
         if (feature) {
-            highlight = feature;
+            highlightedFeature = feature;
+            originalStyle = feature.getStyle();
             feature.setStyle(hoverStyle);
         }
     });
+
 });
 </script>
 </body>
