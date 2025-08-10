@@ -54,51 +54,42 @@
   <script src="./resources/qgis2web.js"></script>
   
   <!-- ===================================================================== -->
-  <!-- ==========         SKRIP KUSTOM (LOGIKA BARU & STABIL)     ========== -->
+  <!-- ==========         SKRIP KUSTOM (VERSI FINAL)          ========== -->
   <!-- ===================================================================== -->
   <script>
     function initializeCustomFeatures() {
         console.log("Peta siap. Memulai skrip kustom.");
 
-        // DAFTAR NAMA INI HARUS SAMA PERSIS DENGAN JUDUL LAYER DI QGIS
-        const targetLayerTitles = [
-            'Pacitan', 'Ponorogo', 'Trenggalek', 'Tulungagung', 'Blitar', 'KotaBlitar',
-            'Kediri', 'KotaKediri', 'Malang', 'KotaMalang', 'Lumajang', 'Jember',
-            'Banyuwangi', 'Bondowoso', 'Situbondo', 'Probolinggo', 'KotaProbolinggo',
-            'Pasuruan', 'KotaPasuruan', 'Sidoarjo', 'Mojokerto', 'KotaMojokerto',
-            'Jombang', 'Ngajuk', 'Madiun', 'KotaMadiun', 'Magetan', 'Ngawi',
-            'Bojonegoro', 'Tuban', 'Lamongan', 'Gresik', 'Bangkalan', 'Sampang',
-            'Pamekasan', 'Sumenep', 'Surabaya', 'Batu'
-        ];
-        
         const kabSelect = document.getElementById('kabupatenSelect');
         const resetButton = document.getElementById('btnReset');
         
-        // Filter semua layer di peta untuk mendapatkan HANYA layer kabupaten yang kita inginkan
-        const kabupatenLayers = map.getLayers().getArray().filter(layer => 
-            targetLayerTitles.includes(layer.get('title'))
-        );
+        // --- 1. DETEKSI OTOMATIS & PENGISIAN DROPDOWN ---
+        const kabupatenLayers = map.getLayers().getArray().filter(layer => {
+            const title = layer.get('title');
+            // Asumsi: layer kabupaten adalah layer vektor yang judulnya BUKAN 'BatasKabupaten' atau basemap
+            return title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector;
+        });
 
         if (kabupatenLayers.length === 0) {
-            console.error("Tidak ada layer kabupaten yang ditemukan. Periksa daftar 'targetLayerTitles'.");
+            console.error("Tidak ada layer kabupaten yang terdeteksi secara otomatis.");
             kabSelect.innerHTML = '<option>Error: Layer tidak ditemukan</option>';
             return;
         }
 
-        // --- 1. Mengisi Dropdown ---
+        // Urutkan layer berdasarkan judulnya secara alfabet
+        kabupatenLayers.sort((a, b) => a.get('title').localeCompare(b.get('title')));
+
         kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
-        // Urutkan berdasarkan nama sebelum ditampilkan
-        kabupatenLayers.sort((a, b) => a.get('title').localeCompare(b.get('title')))
-            .forEach(layer => {
-                const title = layer.get('title');
-                const opt = document.createElement('option');
-                opt.value = title;
-                opt.textContent = title.replace(/([A-Z])/g, ' $1').trim(); 
-                kabSelect.appendChild(opt);
-            });
+        kabupatenLayers.forEach(layer => {
+            const title = layer.get('title');
+            const opt = document.createElement('option');
+            opt.value = title;
+            opt.textContent = title.replace(/([A-Z])/g, ' $1').trim(); 
+            kabSelect.appendChild(opt);
+        });
         console.log(`Dropdown berhasil diisi dengan ${kabupatenLayers.length} kabupaten/kota.`);
 
-        // --- 2. Fungsi untuk Mengontrol Peta ---
+        // --- 2. FUNGSI UNTUK MENGONTROL PETA ---
         function setLayerVisibility(selectedTitle) {
             let targetLayer = null;
             kabupatenLayers.forEach(layer => {
@@ -114,7 +105,7 @@
             kabSelect.value = '';
         }
 
-        // --- 3. Memberi Perintah pada Tombol dan Dropdown ---
+        // --- 3. MEMBERI PERINTAH PADA TOMBOL DAN DROPDOWN ---
         kabSelect.addEventListener('change', function() {
             const selectedName = this.value;
             if (selectedName === '') {
@@ -131,14 +122,43 @@
         });
         resetButton.addEventListener('click', resetMapView);
 
-        // --- 4. Fungsionalitas Hover dan Popup ---
-        // (Kode ini sama seperti versi sebelumnya yang sudah benar)
+        // --- 4. FUNGSI HOVER DAN POPUP ---
         const popupContainer = document.getElementById('popup');
         const popupContent = document.getElementById('popup-content');
         const popupCloser = document.getElementById('popup-closer');
         const overlay = new ol.Overlay({ element: popupContainer, autoPan: true, autoPanAnimation: { duration: 250 } });
         map.addOverlay(overlay);
         popupCloser.onclick = function() { overlay.setPosition(undefined); popupCloser.blur(); return false; };
+
+        function safeValue(value, decimalPlaces = 2) {
+            if (value === null || typeof value === 'undefined' || value === '') return '-';
+            if (typeof value === 'number') return value.toFixed(decimalPlaces);
+            return value;
+        }
+
+        map.on('singleclick', function(evt) {
+            overlay.setPosition(undefined); // Sembunyikan popup dulu
+            const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+            if (feature) {
+                const props = feature.getProperties();
+                // Pastikan feature yang diklik adalah bagian dari layer kabupaten kita
+                const layerOfFeature = map.forEachLayerAtPixel(evt.pixel, l => l);
+                if (kabupatenLayers.includes(layerOfFeature)) {
+                    const clusterValue = parseInt(props['Cluster'], 10);
+                    const klaster = !isNaN(clusterValue) ? clusterValue + 1 : '-';
+                    const content = `
+                        <strong>Nama Desa:</strong> ${safeValue(props['NAMOBJ'])}<br>
+                        <strong>Kabupaten:</strong> ${safeValue(props['WADMKK'])}<br>
+                        <strong>E:</strong> ${safeValue(props['E'])}<br>
+                        <strong>S:</strong> ${safeValue(props['S'])}<br>
+                        <strong>G:</strong> ${safeValue(props['G'])}<br>
+                        <strong>ESG:</strong> ${safeValue(props['ESG'])}<br>
+                        <strong>Klaster:</strong> ${klaster}`;
+                    popupContent.innerHTML = content;
+                    overlay.setPosition(evt.coordinate);
+                }
+            }
+        });
 
         let selected = null;
         const highlightStyle = new ol.style.Style({
@@ -149,10 +169,13 @@
         map.on('pointermove', function(e) {
             if (e.dragging) return;
             if (selected !== null) { selected.setStyle(undefined); selected = null; }
-            map.forEachFeatureAtPixel(e.pixel, function(f) {
-                selected = f;
-                f.setStyle(highlightStyle);
-                return true;
+            map.forEachFeatureAtPixel(e.pixel, function(f, l) {
+                // Hanya highlight feature yang merupakan bagian dari layer kabupaten
+                if (kabupatenLayers.includes(l)) {
+                    selected = f;
+                    f.setStyle(highlightStyle);
+                    return true;
+                }
             });
             map.getTargetElement().style.cursor = selected ? 'pointer' : '';
         });
