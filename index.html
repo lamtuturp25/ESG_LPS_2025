@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width-device-width">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   
@@ -73,9 +73,54 @@
         border-radius: 4px;
         box-sizing: border-box; /* Important for padding */
     }
-    .ol-popup { position: absolute; background-color: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid #cccccc; bottom: 12px; left: -50px; min-width: 280px; font-size: 14px; }
-    .ol-popup-closer { text-decoration: none; position: absolute; top: 2px; right: 8px; font-weight: bold; }
-    #popup-content { line-height: 1.8; }
+    /* --- STYLE BARU UNTUK POPUP --- */
+    .ol-popup { 
+        position: absolute; 
+        background-color: white; 
+        box-shadow: 0 1px 4px rgba(0,0,0,0.2); 
+        padding: 18px; 
+        border-radius: 10px; 
+        border: 1px solid #cccccc; 
+        bottom: 12px; 
+        left: -50px; 
+        min-width: 300px; 
+        font-size: 14px; 
+    }
+    .ol-popup-closer { 
+        text-decoration: none; 
+        position: absolute; 
+        top: 8px; 
+        right: 8px; 
+        font-size: 20px;
+    }
+    #popup-content h3 {
+        margin: 0 0 2px 0;
+        font-size: 18px;
+        color: #000;
+    }
+    #popup-content h4 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #555;
+        font-weight: normal;
+    }
+    #popup-content hr {
+        border: 0;
+        border-top: 1px solid #eee;
+        margin: 12px 0;
+    }
+    .popup-table {
+        width: 100%;
+        border-spacing: 0;
+    }
+    .popup-table td {
+        padding: 4px 0;
+    }
+    .popup-table td:first-child {
+        font-weight: 500;
+        color: #333;
+        width: 150px; /* Lebar kolom label */
+    }
   </style>
   <title>Peta Persebaran ESG Jawa Timur</title>
 </head>
@@ -155,22 +200,22 @@
 
         let allDesaFeatures = [];
         allJsonData.forEach((jsonData, index) => {
-            const format = new ol.format.GeoJSON();
-            const features = format.readFeatures(jsonData, {
-                dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:3857'
-            });
-            const styleFunction = allStyleFunctions[index];
-            features.forEach(feature => {
-                // Simpan style asli pada setiap feature
-                feature.set('original_style', styleFunction);
-                allDesaFeatures.push(feature);
-            });
+            if (typeof jsonData !== 'undefined') {
+                const format = new ol.format.GeoJSON();
+                const features = format.readFeatures(jsonData, {
+                    dataProjection: 'EPSG:4326',
+                    featureProjection: 'EPSG:3857'
+                });
+                const styleFunction = allStyleFunctions[index];
+                features.forEach(feature => {
+                    feature.set('original_style', styleFunction);
+                    allDesaFeatures.push(feature);
+                });
+            }
         });
         
-        // Sembunyikan semua layer asli dari qgis2web
         map.getLayers().forEach(layer => {
-            if (layer.get('title') !== 'BatasKabupaten') { // Jangan sembunyikan basemap jika ada
+            if (layer.get('title') !== 'BatasKabupaten' && layer !== map.getLayers().getArray()[0]) {
                 layer.setVisible(false);
             }
         });
@@ -178,7 +223,7 @@
         const desaSource = new ol.source.Vector({ features: allDesaFeatures });
         const desaLayer = new ol.layer.Vector({
             source: desaSource,
-            style: (feature) => feature.get('original_style')(feature, map.getView().getResolution()),
+            style: (feature, resolution) => feature.get('original_style')(feature, resolution),
             title: 'Semua Desa'
         });
         map.addLayer(desaLayer);
@@ -221,7 +266,7 @@
         map.addOverlay(overlay);
         popupCloser.onclick = function() { overlay.setPosition(undefined); popupCloser.blur(); return false; };
 
-        function safeValue(value, decimalPlaces = 2) {
+        function safeValue(value, decimalPlaces = 4) {
             if (value === null || typeof value === 'undefined' || value === '') return '-';
             if (typeof value === 'number') return value.toFixed(decimalPlaces);
             return value;
@@ -231,19 +276,32 @@
             overlay.setPosition(undefined);
             const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
             if (feature) {
-                const props = feature.getProperties();
-                const clusterValue = parseInt(props['Cluster'], 10);
-                const klaster = !isNaN(clusterValue) ? clusterValue + 1 : '-';
-                const content = `
-                    <strong>Nama Desa:</strong> ${safeValue(props['NAMOBJ'])}<br>
-                    <strong>Kabupaten:</strong> ${safeValue(props['WADMKK'])}<br>
-                    <strong>E:</strong> ${safeValue(props['E'])}<br>
-                    <strong>S:</strong> ${safeValue(props['S'])}<br>
-                    <strong>G:</strong> ${safeValue(props['G'])}<br>
-                    <strong>ESG:</strong> ${safeValue(props['ESG'])}<br>
-                    <strong>Klaster:</strong> ${klaster}`;
-                popupContent.innerHTML = content;
-                overlay.setPosition(evt.coordinate);
+                try {
+                    const props = feature.getProperties();
+                    
+                    const clusterValue = parseInt(props['Cluster'], 10);
+                    const klasterText = !isNaN(clusterValue) ? `Klaster ${clusterValue + 1}` : 'Klaster -';
+
+                    const content = `
+                        <h3>${safeValue(props['NAMOBJ'])}</h3>
+                        <h4>${klasterText}</h4>
+                        <hr>
+                        <table class="popup-table">
+                            <tr><td>Nama Kecamatan</td><td>: ${safeValue(props['WADMKC'])}</td></tr>
+                            <tr><td>Nama Kabupaten</td><td>: ${safeValue(props['WADMKK'])}</td></tr>
+                            <tr><td>Nilai Environmental</td><td>: ${safeValue(props['E'])}</td></tr>
+                            <tr><td>Nilai Social</td><td>: ${safeValue(props['S'])}</td></tr>
+                            <tr><td>Nilai Governance</td><td>: ${safeValue(props['G'])}</td></tr>
+                            <tr><td>Nilai ESG</td><td>: ${safeValue(props['ESG'])}</td></tr>
+                        </table>
+                    `;
+                    popupContent.innerHTML = content;
+                    overlay.setPosition(evt.coordinate);
+                } catch (err) {
+                    console.error("Error saat membuat konten popup:", err);
+                    popupContent.innerHTML = "Gagal memuat data desa.";
+                    overlay.setPosition(evt.coordinate);
+                }
             }
         });
 
@@ -272,7 +330,7 @@
 
     // --- MEKANISME PALING STABIL UNTUK MENUNGGU PETA SIAP ---
     const mapReadyCheck = setInterval(function() {
-        if (typeof map !== 'undefined' && typeof ol !== 'undefined') {
+        if (typeof map !== 'undefined' && typeof ol !== 'undefined' && typeof json_Pacitan_1 !== 'undefined' && typeof style_Pacitan_1 !== 'undefined') {
             clearInterval(mapReadyCheck);
             initializeCustomFeatures();
         }
