@@ -12,23 +12,29 @@
   <link rel="stylesheet" href="./resources/qgis2web.css">
 
   <style>
+    /* Membuat peta responsif dan menghilangkan style lama */
     html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden; }
-    #topbar { position: absolute; left: 10px; top: 10px; z-index: 1100; background: rgba(255,255,255,0.95); padding: 8px 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.12); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: calc(100vw - 40px); }
+    /* Panel kontrol di atas peta */
+    #topbar { position: absolute; left: 10px; top: 10px; z-index: 1100; background: white; padding: 8px 10px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: calc(100vw - 40px); }
     label { font-size: 13px; font-weight: 600; white-space: nowrap; }
-    select, input, button { padding: 6px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; outline: none; min-width: 150px; }
+    select, button { padding: 6px 10px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; outline: none; min-width: 150px; }
     button { cursor: pointer; }
-    .ol-popup { position: absolute; background-color: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid #cccccc; bottom: 12px; left: -50px; min-width: 200px; font-size: 13px; }
-    .ol-popup-closer { text-decoration: none; position: absolute; top: 2px; right: 8px; font-weight: bold; font-size: 18px; }
+    /* Popup */
+    .ol-popup { position: absolute; background-color: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 1px solid #cccccc; bottom: 12px; left: -50px; min-width: 280px; font-size: 14px; }
+    .ol-popup-closer { text-decoration: none; position: absolute; top: 2px; right: 8px; }
+    #popup-content { line-height: 1.8; }
   </style>
   <title>Peta Interaktif Jawa Timur</title>
 </head>
 <body>
+  <!-- Elemen HTML untuk Dropdown -->
   <div id="topbar">
     <label for="kabupatenSelect">Pilih Kabupaten/Kota:</label>
-    <select id="kabupatenSelect"><option>Memuat...</option></select>
+    <select id="kabupatenSelect"><option>Memuat Peta...</option></select>
     <button id="btnReset">Reset</button>
   </div>
 
+  <!-- Kontainer Peta dari qgis2web -->
   <div id="map">
     <div id="popup" class="ol-popup">
       <a href="#" id="popup-closer" class="ol-popup-closer"></a>
@@ -36,6 +42,7 @@
     </div>
   </div>
   
+  <!-- Semua skrip asli dari qgis2web -->
   <script src="resources/qgis2web_expressions.js"></script>
   <script src="./resources/functions.js"></script>
   <script src="./resources/ol.js"></script>
@@ -46,68 +53,59 @@
   <script src="./resources/Autolinker.min.js"></script>
   <script src="./resources/qgis2web.js"></script>
   
+  <!-- ===================================================================== -->
+  <!-- ==========         SKRIP KUSTOM (LOGIKA OTOMATIS)       ========== -->
+  <!-- ===================================================================== -->
   <script>
-    // Fungsi ini akan berisi semua logika kustom kita
     function initializeCustomFeatures() {
-        console.log("Peta siap. Menjalankan skrip kustom.");
+        console.log("Peta siap. Memulai skrip kustom.");
 
-        // ===== SESUAIKAN DAFTAR INI DENGAN HASIL DIAGNOSIS KONSOL ANDA =====
-        const daftarNamaKabupaten = [
-            'Pacitan', 'Ponorogo', 'Trenggalek', 'Tulungagung', 'Blitar', 'KotaBlitar', // Contoh: Mungkin 'Kota Blitar' diekspor sebagai 'KotaBlitar'
-            'Kediri', 'KotaKediri', 'Malang', 'KotaMalang', 'Lumajang', 'Jember',
-            'Banyuwangi', 'Bondowoso', 'Situbondo', 'Probolinggo', 'KotaProbolinggo',
-            'Pasuruan', 'KotaPasuruan', 'Sidoarjo', 'Mojokerto', 'KotaMojokerto',
-            'Jombang', 'Ngajuk', 'Madiun', 'KotaMadiun', 'Magetan', 'Ngawi',
-            'Bojonegoro', 'Tuban', 'Lamongan', 'Gresik', 'Bangkalan', 'Sampang',
-            'Pamekasan', 'Sumenep', 'Surabaya', 'Batu'
-        ];
-        
         const kabSelect = document.getElementById('kabupatenSelect');
         const resetButton = document.getElementById('btnReset');
         const allMapLayers = map.getLayers().getArray();
+        let kabupatenLayers = []; // Hanya untuk menyimpan layer-layer kabupaten
+        let daftarNamaKabupaten = []; // Daftar nama resmi dari peta
 
-        // --- Isi Dropdown ---
+        // --- 1. MEMBANGUN DAFTAR DROPDOWN SECARA OTOMATIS ---
+        console.log("Membaca layer dari peta untuk membangun dropdown...");
+        allMapLayers.forEach(layer => {
+            const title = layer.get('title');
+            // Kita anggap semua layer vektor selain 'BatasKabupaten' adalah layer kabupaten
+            if (title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector) {
+                kabupatenLayers.push(layer);
+                daftarNamaKabupaten.push(title);
+            }
+        });
+
+        // Urutkan nama secara alfabet
+        daftarNamaKabupaten.sort();
+
         kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
-        daftarNamaKabupaten.forEach(nama => {
+        daftarNamaKabupaten.forEach(namaAsli => {
             const opt = document.createElement('option');
-            opt.value = nama;
-            // Tampilkan nama dengan spasi agar lebih mudah dibaca
-            opt.textContent = nama.replace(/([A-Z])/g, ' $1').trim();
+            opt.value = namaAsli;
+            opt.textContent = namaAsli.replace(/([A-Z])/g, ' $1').trim(); 
             kabSelect.appendChild(opt);
         });
+        console.log(`Dropdown berhasil diisi dengan ${daftarNamaKabupaten.length} kabupaten/kota.`);
 
-        // --- Fungsi untuk Mengatur Visibilitas Layer ---
+        // --- 2. FUNGSI UNTUK MENGONTROL PETA ---
         function setLayerVisibility(selectedTitle) {
             let targetLayer = null;
-            allMapLayers.forEach(layer => {
-                const layerTitle = layer.get('title');
-                // Proses hanya layer yang ada di daftar kita dan layer BatasKabupaten
-                if (daftarNamaKabupaten.includes(layerTitle)) {
-                    const isVisible = (layerTitle === selectedTitle);
-                    layer.setVisible(isVisible);
-                    if (isVisible) {
-                        targetLayer = layer;
-                    }
-                } else if (layerTitle === 'BatasKabupaten') {
-                    layer.setVisible(true); // Batas kabupaten selalu terlihat
-                }
+            kabupatenLayers.forEach(layer => {
+                const isVisible = (layer.get('title') === selectedTitle);
+                layer.setVisible(isVisible);
+                if (isVisible) { targetLayer = layer; }
             });
             return targetLayer;
         }
         
-        // --- Fungsi Reset ---
         function resetMapView() {
-            allMapLayers.forEach(layer => layer.setVisible(true));
+            kabupatenLayers.forEach(layer => layer.setVisible(true));
             kabSelect.value = '';
-            // Zoom out (opsional)
-            const view = map.getView();
-            const currentZoom = view.getZoom();
-            if (currentZoom > 8) { // Hanya zoom out jika terlalu dekat
-                 view.animate({ zoom: 8, duration: 250 });
-            }
         }
 
-        // --- Event Listener untuk Dropdown ---
+        // --- 3. MEMBERI PERINTAH PADA TOMBOL DAN DROPDOWN ---
         kabSelect.addEventListener('change', function() {
             const selectedName = this.value;
             if (selectedName === '') {
@@ -125,14 +123,22 @@
         resetButton.addEventListener('click', resetMapView);
     };
 
-    // --- Mekanisme untuk menunggu peta siap ---
-    // Ini akan terus mengecek setiap 100ms sampai 'map' dan 'ol' ada.
+    // --- MEKANISME PALING STABIL UNTUK MENUNGGU PETA SIAP ---
     const mapReadyCheck = setInterval(function() {
         if (typeof map !== 'undefined' && typeof ol !== 'undefined') {
             clearInterval(mapReadyCheck); // Hentikan pengecekan
             initializeCustomFeatures(); // Jalankan fungsi utama kita
         }
     }, 100);
+
+    // --- DIAGNOSIS JIKA PETA GAGAL TOTAL ---
+    setTimeout(function() {
+        if (typeof map === 'undefined') {
+            clearInterval(mapReadyCheck);
+            console.error("GAGAL TOTAL: Peta tidak berhasil dimuat setelah 5 detik.");
+            alert("Peta gagal dimuat. Periksa Konsol (F12) dan tab Network untuk mencari file yang gagal dimuat (error 404).");
+        }
+    }, 5000);
   </script>
 </body>
 </html>
