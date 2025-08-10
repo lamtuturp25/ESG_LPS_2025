@@ -4,38 +4,28 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Peta Kabupaten & Desa (Revisi)</title>
+  <title>Peta Kabupaten & Kota Jawa Timur</title>
 
-  <!-- OpenLayers & CSS -->
-  <link rel="stylesheet" href="./resources/ol.css" />
-  <link rel="stylesheet" href="resources/fontawesome-all.min.css" />
-  <link href="resources/photon-geocoder-autocomplete.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./resources/ol-layerswitcher.css" />
-  <link rel="stylesheet" href="./resources/qgis2web.css" />
-
+  <!-- OpenLayers CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol/ol.css" />
+  
   <style>
     html, body, #map {
       margin: 0; padding: 0; width: 100%; height: 100%;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     }
+    
+    /* Kontrol OpenLayers */
     .ol-control > * {
       background-color: #f8f8f8 !important;
       color: #444 !important;
-      border-radius: 0;
-    }
-    .ol-attribution a, .gcd-gl-input::placeholder, .search-layer-input-search::placeholder {
-      color: #444 !important;
-    }
-    .search-layer-input-search {
-      background-color: #f8f8f8 !important;
-    }
-    .ol-control > *:focus, .ol-control > *:hover {
-      background-color: rgba(248, 248, 248, 0.7) !important;
+      border-radius: 4px;
     }
     .ol-control {
       background-color: rgba(255,255,255,0.4) !important;
-      padding: 2px !important;
+      padding: 5px !important;
     }
+    
     /* Top bar */
     #topbar {
       position: absolute;
@@ -43,75 +33,91 @@
       top: 10px;
       z-index: 1100;
       background: rgba(255,255,255,0.95);
-      padding: 8px 10px;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      padding: 10px 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
       max-width: calc(100vw - 40px);
     }
+    
     label {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       white-space: nowrap;
+      color: #333;
     }
-    select, input, button {
-      padding: 6px 10px;
-      font-size: 13px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-family: inherit;
-      outline: none;
-      min-width: 150px;
-    }
-    select:hover, input:hover, button:hover {
-      border-color: #888;
-    }
-    select:focus, input:focus {
-      border-color: #0066cc;
-      box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
-    }
-    button {
-      cursor: pointer;
-      background-color: #eee;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-    button:hover {
-      background-color: #ddd;
-      border-color: #999;
-    }
-    button:active {
-      background-color: #ccc;
-    }
-
+    
     /* Dropdown styling */
     select {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background-color: #fff;
+      color: #333;
+      min-width: 200px;
       appearance: none;
       -webkit-appearance: none;
       -moz-appearance: none;
       background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
-      background-position: right 8px center;
-      background-size: 14px;
-      padding-right: 30px;
+      background-position: right 10px center;
+      background-size: 16px;
+      padding-right: 35px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-
+    
+    select:hover {
+      border-color: #bbb;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+    }
+    
+    select:focus {
+      border-color: #4d90fe;
+      box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.3);
+      outline: none;
+    }
+    
+    /* Button */
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      color: #333;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    button:hover {
+      background-color: #e0e0e0;
+      border-color: #ccc;
+    }
+    
+    button:active {
+      background-color: #d0d0d0;
+    }
+    
     /* Popup */
     .ol-popup {
       position: absolute;
       background-color: white;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
       padding: 15px;
       border-radius: 10px;
-      border: 1px solid #cccccc;
+      border: 1px solid #ddd;
       bottom: 12px;
       left: -50px;
-      min-width: 200px;
-      font-size: 13px;
+      min-width: 220px;
+      font-size: 14px;
     }
+    
     .ol-popup:after, .ol-popup:before {
       top: 100%;
       border: solid transparent;
@@ -121,30 +127,34 @@
       position: absolute;
       pointer-events: none;
     }
+    
     .ol-popup:after {
       border-top-color: white;
       border-width: 10px;
       left: 48px;
       margin-left: -10px;
     }
+    
     .ol-popup:before {
-      border-top-color: #cccccc;
+      border-top-color: #ddd;
       border-width: 11px;
       left: 48px;
       margin-left: -11px;
     }
+    
     .ol-popup-closer {
       text-decoration: none;
       position: absolute;
-      top: 2px;
+      top: 5px;
       right: 8px;
       font-weight: bold;
       font-size: 18px;
-      color: #aaa;
+      color: #999;
       cursor: pointer;
     }
+    
     .ol-popup-closer:hover {
-      color: #000;
+      color: #333;
     }
   </style>
 </head>
@@ -153,28 +163,23 @@
   <!-- Top controls -->
   <div id="topbar">
     <label for="kabupatenSelect">Pilih Kabupaten/Kota:</label>
-    <select id="kabupatenSelect"><option value="">-- Semua Kabupaten --</option></select>
+    <select id="kabupatenSelect">
+      <option value="">-- Semua Kabupaten --</option>
+    </select>
 
-    <label for="searchDesa">Cari Desa:</label>
-    <input id="searchDesa" placeholder="ketik nama desa lalu Enter" />
-
-    <button id="btnReset">Reset</button>
+    <button id="btnReset">Reset Peta</button>
   </div>
 
   <!-- Map container -->
   <div id="map">
     <div id="popup" class="ol-popup" style="display:none;">
-      <a href="#" id="popup-closer" class="ol-popup-closer">&#215;</a>
+      <a href="#" id="popup-closer" class="ol-popup-closer">&times;</a>
       <div id="popup-content"></div>
     </div>
   </div>
 
-  <!-- QGIS2Web & OpenLayers scripts -->
-  <script src="resources/qgis2web_expressions.js"></script>
-  <script src="./resources/functions.js"></script>
-  <script src="./resources/ol.js"></script>
-  <script src="./resources/ol-layerswitcher.js"></script>
-  <script src="resources/photon-geocoder-autocomplete.min.js"></script>
+  <!-- OpenLayers JS -->
+  <script src="https://cdn.jsdelivr.net/npm/ol/ol.js"></script>
 
   <!-- Load layers scripts -->
   <script src="layers/Pacitan_1.js"></script>
@@ -258,131 +263,130 @@
   <script src="styles/Batu_38_style.js"></script>
   <script src="styles/BatasKabupaten_39_style.js"></script>
 
-  <!-- Layers list & Autolinker -->
-  <script src="./layers/layers.js"></script>
-  <script src="./resources/Autolinker.min.js"></script>
-
-  <!-- qgis2web main script -->
-  <script src="./resources/qgis2web.js"></script>
-
-  <!-- Custom script -->
+  <!-- Main script -->
   <script>
-    (function(){
+    document.addEventListener('DOMContentLoaded', function() {
+      // Daftar layer kabupaten/kota
+      const kabupatenLayers = [
+        lyr_Pacitan_1, lyr_Ponorogo_2, lyr_Trenggalek_3, lyr_Tulungagung_4,
+        lyr_Blitar_5, lyr_KotaBlitar_6, lyr_Kediri_7, lyr_KotaKediri_8,
+        lyr_Malang_9, lyr_KotaMalang_10, lyr_Lumajang_11, lyr_Jember_12,
+        lyr_Banyuwangi_13, lyr_Bondowoso_14, lyr_Situbondo_15, lyr_Probolinggo_16,
+        lyr_KotaProbolinggo_17, lyr_Pasuruan_18, lyr_KotaPasuruan_19, lyr_Sidoarjo_20,
+        lyr_Mojokerto_21, lyr_KotaMojokerto_22, lyr_Jombang_23, lyr_Ngajuk_24,
+        lyr_Madiun_25, lyr_KotaMadiun_26, lyr_Magetan_27, lyr_Ngawi_28,
+        lyr_Bojonegoro_29, lyr_Tuban_30, lyr_Lamongan_31, lyr_Gresik_32,
+        lyr_Bangkalan_33, lyr_Sampang_34, lyr_Pamekasan_35, lyr_Sumenep_36,
+        lyr_Surabaya_37, lyr_Batu_38
+      ];
 
-      // Helper safe text
-      function safeText(v){
-        return (v === undefined || v === null || v === '') ? '-' : String(v);
-      }
+      // Inisialisasi peta
+      const map = new ol.Map({
+        target: 'map',
+        layers: [
+          lyr_GoogleSatellite_0,
+          new ol.layer.Group({
+            layers: kabupatenLayers,
+            title: 'Cluster ESG per Kabupaten/Kota Jawa Timur'
+          }),
+          lyr_BatasKabupaten_39
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([112.5, -7.2]),
+          zoom: 7
+        })
+      });
 
-      // Wait for map and layer variables (usually created by qgis2web.js)
-      function waitForCondition(conditionFn, interval=100, timeout=10000){
-        return new Promise((resolve)=>{
-          const start = Date.now();
-          (function check(){
-            if(conditionFn()) return resolve(true);
-            if(Date.now() - start > timeout) return resolve(false);
-            setTimeout(check, interval);
-          })();
-        });
-      }
+      // Isi dropdown kabupaten
+      const kabSelect = document.getElementById('kabupatenSelect');
+      kabupatenLayers.forEach((layer, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = layer.get('title').split('<br />')[0];
+        kabSelect.appendChild(option);
+      });
 
-      waitForCondition(() => typeof map !== 'undefined' && typeof layersList !== 'undefined').then(ok => {
-        if(!ok){
-          alert('Map atau layersList belum tersedia.');
-          return;
+      // Hover interaction - highlight style
+      let hoverInteraction = new ol.interaction.Select({
+        condition: ol.events.condition.pointerMove,
+        layers: kabupatenLayers,
+        style: new ol.style.Style({
+          stroke: new ol.style.Stroke({
+            color: 'yellow',
+            width: 3
+          }),
+          fill: new ol.style.Fill({
+            color: 'rgba(255, 255, 0, 0.3)'
+          })
+        })
+      });
+      map.addInteraction(hoverInteraction);
+
+      // Popup overlay
+      const popupEl = document.getElementById('popup');
+      const popupCloser = document.getElementById('popup-closer');
+      const popupContent = document.getElementById('popup-content');
+      const overlay = new ol.Overlay({
+        element: popupEl,
+        autoPan: {
+          animation: {
+            duration: 250
+          }
         }
+      });
+      map.addOverlay(overlay);
+      
+      popupCloser.onclick = function(e) {
+        overlay.setPosition(undefined);
+        popupEl.style.display = 'none';
+        e.preventDefault();
+      };
 
-        // ------------------------
-        // --- DEFINISI LAYER KABUPATEN & KOTA ---
-        // pastikan layer variabel sudah didefinisikan di file layers/*.js
-        // contoh: var layer_Pacitan_1, layer_Ponorogo_2, ...
-        const kabupatenLayers = [
-          layer_Pacitan_1,
-          layer_Ponorogo_2,
-          layer_Trenggalek_3,
-          layer_Tulungagung_4,
-          layer_Blitar_5,
-          layer_KotaBlitar_6,
-          layer_Kediri_7,
-          layer_KotaKediri_8,
-          layer_Malang_9,
-          layer_KotaMalang_10,
-          layer_Lumajang_11,
-          layer_Jember_12,
-          layer_Banyuwangi_13,
-          layer_Bondowoso_14,
-          layer_Situbondo_15,
-          layer_Probolinggo_16,
-          layer_KotaProbolinggo_17,
-          layer_Pasuruan_18,
-          layer_KotaPasuruan_19,
-          layer_Sidoarjo_20,
-          layer_Mojokerto_21,
-          layer_KotaMojokerto_22,
-          layer_Jombang_23,
-          layer_Ngajuk_24,
-          layer_Madiun_25,
-          layer_KotaMadiun_26,
-          layer_Magetan_27,
-          layer_Ngawi_28,
-          layer_Bojonegoro_29,
-          layer_Tuban_30,
-          layer_Lamongan_31,
-          layer_Gresik_32,
-          layer_Bangkalan_33,
-          layer_Sampang_34,
-          layer_Pamekasan_35,
-          layer_Sumenep_36,
-          layer_Surabaya_37,
-          layer_Batu_38
-        ];
-
-        // Layer batas kabupaten (outline) yang selalu tampil
-        const batasKabupatenLayer = layer_BatasKabupaten_39;
-
-        // ------------------------
-        // Initialize: show all kabupaten with full opacity
-        kabupatenLayers.forEach(lyr=>{
-          lyr.setVisible(true);
-          lyr.setOpacity(1);
+      // Click on feature popup
+      map.on('singleclick', function(evt) {
+        const feature = map.forEachFeatureAtPixel(evt.pixel, function(f) {
+          return f;
         });
-        // Batas kabupaten selalu tampil dengan opacity 1
-        batasKabupatenLayer.setVisible(true);
-        batasKabupatenLayer.setOpacity(1);
-
-        // Initialize map view: zoom ke gabungan semua kabupaten
-        try {
-          // Gabung extent semua kabupaten
-          let combinedExtent = ol.extent.createEmpty();
-          kabupatenLayers.forEach(lyr=>{
-            const ext = lyr.getSource().getExtent();
-            if(ext && !ol.extent.isEmpty(ext)) ol.extent.extend(combinedExtent, ext);
-          });
-          map.getView().fit(combinedExtent, {padding:[40,40,40,40], maxZoom: 9, duration: 700});
-        } catch(e){
-          console.warn('Gagal set extent awal gabungan kabupaten', e);
-        }
-
-        // Fill dropdown kabupaten
-        const kabSelect = document.getElementById('kabupatenSelect');
-        kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
-        kabupatenLayers.forEach((lyr, i)=>{
-          let title = lyr.get('title') || lyr.get('name') || `Kabupaten ${i+1}`;
-          let opt = document.createElement('option');
-          opt.value = i;
-          opt.textContent = title;
-          kabSelect.appendChild(opt);
-        });
-
-        // Hover interaction - highlight style
-        let hoverInteraction = null;
-        function enableHoverOnLayer(layer){
-          if(hoverInteraction) map.removeInteraction(hoverInteraction);
-          if(!layer) return;
+        
+        if (feature) {
+          const props = feature.getProperties();
+          const nama = props['NAMOBJ'] || props['nmkab'] || 'Tidak diketahui';
+          const cluster = props['Cluster'] || 'Tidak diketahui';
           
+          popupContent.innerHTML = `
+            <strong>${nama}</strong><br>
+            Cluster: ${cluster}<br>
+            ESG: ${props['ESG'] || 'Tidak diketahui'}
+          `;
+          
+          overlay.setPosition(evt.coordinate);
+          popupEl.style.display = 'block';
+        } else {
+          overlay.setPosition(undefined);
+          popupEl.style.display = 'none';
+        }
+      });
+
+      // Dropdown change handler: focus on selected kabupaten
+      kabSelect.addEventListener('change', function() {
+        const idx = this.value;
+        
+        if (idx === '') {
+          // Reset semua layer ke opacity 1
+          kabupatenLayers.forEach(layer => layer.setOpacity(1));
+          
+          // Zoom ke seluruh Jawa Timur
+          map.getView().animate({
+            center: ol.proj.fromLonLat([112.5, -7.2]),
+            zoom: 7,
+            duration: 500
+          });
+          
+          // Update hover interaction ke semua layer
+          map.removeInteraction(hoverInteraction);
           hoverInteraction = new ol.interaction.Select({
             condition: ol.events.condition.pointerMove,
-            layers: Array.isArray(layer) ? layer : [layer],
+            layers: kabupatenLayers,
             style: new ol.style.Style({
               stroke: new ol.style.Stroke({
                 color: 'yellow',
@@ -395,180 +399,55 @@
           });
           map.addInteraction(hoverInteraction);
           
-          // Add hover style for touch devices
-          hoverInteraction.on('select', function(e) {
-            if (e.selected.length > 0) {
-              document.getElementById('map').style.cursor = 'pointer';
-            } else {
-              document.getElementById('map').style.cursor = '';
-            }
+          return;
+        }
+        
+        // Fokus layer terpilih: opacity 1, yang lain opacity 0.3
+        kabupatenLayers.forEach((layer, i) => {
+          layer.setOpacity(i == idx ? 1 : 0.3);
+        });
+        
+        // Zoom ke extent kabupaten yang dipilih
+        const extent = kabupatenLayers[idx].getSource().getExtent();
+        if (extent && !ol.extent.isEmpty(extent)) {
+          map.getView().fit(extent, {
+            padding: [50, 50, 50, 50],
+            maxZoom: 10,
+            duration: 500
           });
         }
 
-        // Set initial hover on all kabupaten layers
-        enableHoverOnLayer(kabupatenLayers);
-
-        // Popup overlay
-        const popupEl = document.getElementById('popup');
-        const popupCloser = document.getElementById('popup-closer');
-        const popupContent = document.getElementById('popup-content');
-        const overlay = new ol.Overlay({
-          element: popupEl,
-          autoPan: {
-            animation: {
-              duration: 250
-            }
-          }
+        // Update hover interaction ke layer yg dipilih saja
+        map.removeInteraction(hoverInteraction);
+        hoverInteraction = new ol.interaction.Select({
+          condition: ol.events.condition.pointerMove,
+          layers: [kabupatenLayers[idx]],
+          style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+              color: 'yellow',
+              width: 3
+            }),
+            fill: new ol.style.Fill({
+              color: 'rgba(255, 255, 0, 0.3)'
+            })
+          })
         });
-        map.addOverlay(overlay);
-        popupCloser.onclick = function(){
-          overlay.setPosition(undefined);
-          popupEl.style.display = 'none';
-          popupCloser.blur();
-          return false;
-        };
+        map.addInteraction(hoverInteraction);
 
-        // Click on feature popup (only active layer(s))
-        map.on('singleclick', function(evt){
-          // Find feature on kabupaten layers (only visible ones)
-          let features = [];
-          kabupatenLayers.forEach(lyr=>{
-            if(lyr.getVisible()){
-              const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => (l === lyr) ? f : null);
-              if(feature) features.push(feature);
-            }
-          });
-          // If found multiple features, pick first
-          if(features.length > 0){
-            const f = features[0];
-            const props = f.getProperties();
-            let html = `<strong>${safeText(props['NAME_2'] || props['name'] || props['nama'])}</strong><br/>`;
-            if(props['ID_2']) html += `ID: ${props['ID_2']}<br/>`;
-            overlay.setPosition(evt.coordinate);
-            popupContent.innerHTML = html;
-            popupEl.style.display = 'block';
-          } else {
-            overlay.setPosition(undefined);
-            popupEl.style.display = 'none';
-          }
-        });
+        // Clear popup
+        overlay.setPosition(undefined);
+        popupEl.style.display = 'none';
+      });
 
-        // Dropdown change handler: focus on selected kabupaten
-        kabSelect.addEventListener('change', function(){
-          let idx = this.value;
-          if(idx === ''){
-            // Show all kabupaten full opacity again
-            kabupatenLayers.forEach(lyr => {
-              lyr.setOpacity(1);
-              lyr.setVisible(true);
-            });
-            batasKabupatenLayer.setOpacity(1);
-            // Zoom to initial view
-            try {
-              let combinedExtent = ol.extent.createEmpty();
-              kabupatenLayers.forEach(lyr=>{
-                const ext = lyr.getSource().getExtent();
-                if(ext && !ol.extent.isEmpty(ext)) ol.extent.extend(combinedExtent, ext);
-              });
-              map.getView().fit(combinedExtent, {padding:[40,40,40,40], maxZoom: 9, duration: 700});
-            } catch(e){
-              console.warn('Gagal set extent gabungan kabupaten', e);
-            }
-            
-            // Enable hover on all layers
-            enableHoverOnLayer(kabupatenLayers);
-            return;
-          }
-          idx = Number(idx);
-          // Fokus layer terpilih: opacity 1, yang lain opacity 0.3
-          kabupatenLayers.forEach((lyr,i)=>{
-            lyr.setOpacity(i === idx ? 1 : 0.3);
-            lyr.setVisible(true);
-          });
-          batasKabupatenLayer.setOpacity(1);
-          // Zoom ke extent kabupaten yang dipilih
-          const ext = kabupatenLayers[idx].getSource().getExtent();
-          if(ext) map.getView().fit(ext, {padding:[50,50,50,50], maxZoom: 12, duration: 500});
-
-          // Update hover interaction ke layer yg dipilih saja
-          enableHoverOnLayer(kabupatenLayers[idx]);
-
-          // Clear popup
-          overlay.setPosition(undefined);
-          popupEl.style.display = 'none';
-        });
-
-        // Search desa - simple text search on active layer features
-        const searchInput = document.getElementById('searchDesa');
-        searchInput.addEventListener('keydown', function(evt){
-          if(evt.key !== 'Enter') return;
-          const searchText = this.value.trim().toLowerCase();
-          if(!searchText) return;
-
-          // Cari di layer kabupaten yg aktif (visible dan opacity 1)
-          const activeLayer = kabupatenLayers.find(lyr => lyr.getVisible() && lyr.getOpacity() === 1);
-          if(!activeLayer){
-            alert('Pilih kabupaten/kota dulu sebelum cari desa');
-            return;
-          }
-          const source = activeLayer.getSource();
-          const features = source.getFeatures();
-          // Cari feature yang nama desanya mengandung kata kunci searchText
-          let foundFeature = null;
-          for(let f of features){
-            let namaDesa = (f.get('NAME_3') || f.get('name') || f.get('nama') || '').toLowerCase();
-            if(namaDesa.indexOf(searchText) !== -1){
-              foundFeature = f;
-              break;
-            }
-          }
-          if(!foundFeature){
-            alert('Desa tidak ditemukan di kabupaten/kota yang dipilih');
-            return;
-          }
-
-          // Zoom ke feature dan buka popup
-          const geom = foundFeature.getGeometry();
-          const ext = geom.getExtent();
-          if(ext){
-            map.getView().fit(ext, {padding:[100,100,100,100], maxZoom: 15, duration: 700});
-          }
-          const props = foundFeature.getProperties();
-          let html = `<strong>${safeText(props['NAME_3'] || props['name'] || props['nama'])}</strong><br/>`;
-          overlay.setPosition(geom.getCoordinates());
-          popupContent.innerHTML = html;
-          popupEl.style.display = 'block';
-        });
-
-        // Reset button to show all kabupaten and zoom out
-        document.getElementById('btnReset').addEventListener('click', () => {
-          kabupatenLayers.forEach(lyr => {
-            lyr.setVisible(true);
-            lyr.setOpacity(1);
-          });
-          batasKabupatenLayer.setOpacity(1);
-          // Zoom to initial view
-          try {
-            let combinedExtent = ol.extent.createEmpty();
-            kabupatenLayers.forEach(lyr=>{
-              const ext = lyr.getSource().getExtent();
-              if(ext && !ol.extent.isEmpty(ext)) ol.extent.extend(combinedExtent, ext);
-            });
-            map.getView().fit(combinedExtent, {padding:[40,40,40,40], maxZoom: 9, duration: 700});
-          } catch(e){
-            console.warn('Gagal set extent gabungan kabupaten', e);
-          }
-          enableHoverOnLayer(kabupatenLayers);
-          overlay.setPosition(undefined);
-          popupEl.style.display = 'none';
-          kabSelect.value = '';
-          searchInput.value = '';
-        });
-
-      }); // end waitForCondition
-
-    })();
+      // Reset button handler
+      document.getElementById('btnReset').addEventListener('click', function() {
+        kabSelect.value = '';
+        
+        // Trigger change event
+        const event = new Event('change');
+        kabSelect.dispatchEvent(event);
+      });
+    });
   </script>
-
 </body>
 </html>
