@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width-device-width">
+  <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   
@@ -65,13 +65,26 @@
         margin-right: 10px;
         border: 1px solid #888;
     }
+    .search-container {
+        display: flex;
+        gap: 8px;
+    }
     #search-input {
         width: 100%;
         padding: 8px;
         font-size: 14px;
         border: 1px solid #ccc;
         border-radius: 4px;
-        box-sizing: border-box; /* Important for padding */
+        box-sizing: border-box;
+    }
+    #btn-reset {
+        padding: 8px 12px;
+        font-size: 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        cursor: pointer;
+        white-space: nowrap;
     }
     /* --- STYLE BARU UNTUK POPUP --- */
     .ol-popup { 
@@ -132,22 +145,25 @@
         <div class="legend-section">
             <h2>Legend Klaster</h2>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #a3ff73;"></div>
+                <div class="legend-color" style="background-color: #85b66f;"></div>
                 <span>Klaster 1</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #ffc864;"></div>
+                <div class="legend-color" style="background-color: #fec980;"></div>
                 <span>Klaster 2</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #ff5a5a;"></div>
+                <div class="legend-color" style="background-color: #ff0900;"></div>
                 <span>Klaster 3</span>
             </div>
         </div>
 
         <div class="search-section">
             <h2>Pilih Kabupaten / Kota</h2>
-            <input type="text" id="search-input" placeholder="Ketik nama lalu Enter...">
+            <div class="search-container">
+                <input type="text" id="search-input" placeholder="Ketik nama...">
+                <button id="btn-reset" title="Balik ke Jawa Timur">Reset</button>
+            </div>
         </div>
     </div>
 
@@ -229,10 +245,22 @@
         map.addLayer(desaLayer);
         console.log(`Berhasil menggabungkan ${allDesaFeatures.length} desa.`);
 
-        // --- 2. FUNGSI PENCARIAN ---
+        // --- 2. FUNGSI PENCARIAN & RESET ---
         const searchInput = document.getElementById('search-input');
+        const resetButton = document.getElementById('btn-reset');
         
+        function resetMapView() {
+            searchInput.value = '';
+            desaSource.clear();
+            desaSource.addFeatures(allDesaFeatures);
+            map.getView().fit(desaSource.getExtent(), { padding: [50, 50, 50, 50], duration: 500 });
+        }
+
         function searchAndFilter(searchTerm) {
+            if (!searchTerm) {
+                resetMapView();
+                return;
+            }
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
             const filteredFeatures = allDesaFeatures.filter(feature => {
                 const namaKab = (feature.get('WADMKK') || '').toLowerCase();
@@ -246,17 +274,17 @@
                 map.getView().fit(desaSource.getExtent(), { padding: [50, 50, 50, 50], maxZoom: 11, duration: 500 });
             } else {
                 alert('Kabupaten/Kota tidak ditemukan.');
-                desaSource.clear();
-                desaSource.addFeatures(allDesaFeatures);
+                resetMapView();
             }
         }
 
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
-                const searchTerm = this.value.trim();
-                searchAndFilter(searchTerm);
+                searchAndFilter(this.value.trim());
             }
         });
+
+        resetButton.addEventListener('click', resetMapView);
 
         // --- 3. FUNGSI HOVER DAN POPUP ---
         const popupContainer = document.getElementById('popup');
@@ -273,8 +301,11 @@
         }
 
         map.on('singleclick', function(evt) {
+            // Sembunyikan popup terlebih dahulu
             overlay.setPosition(undefined);
+            // Cari feature HANYA dari layer desa gabungan kita
             const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
+            
             if (feature) {
                 try {
                     const props = feature.getProperties();
@@ -299,7 +330,7 @@
                     overlay.setPosition(evt.coordinate);
                 } catch (err) {
                     console.error("Error saat membuat konten popup:", err);
-                    popupContent.innerHTML = "Gagal memuat data desa.";
+                    popupContent.innerHTML = "Gagal memuat data untuk desa ini.";
                     overlay.setPosition(evt.coordinate);
                 }
             }
