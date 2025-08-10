@@ -140,7 +140,7 @@
 <body>
   <div id="app-container">
     <div id="sidebar">
-        <h1>Peta Persebaran ESG Jawa Timur revvv</h1>
+        <h1>Peta Persebaran ESG Jawa Timur</h1>
         
         <div class="legend-section">
             <h2>Legend Klaster</h2>
@@ -193,35 +193,67 @@
     function initializeCustomFeatures() {
         console.log("Peta siap. Memulai skrip kustom.");
 
-        // --- 1. SETUP VARIABEL & REFERENSI ---
-        const searchInput = document.getElementById('search-input');
-        const resetButton = document.getElementById('btn-reset');
-        const popupContainer = document.getElementById('popup');
-        const popupContent = document.getElementById('popup-content');
-        const popupCloser = document.getElementById('popup-closer');
+        // --- 1. PENGGABUNGAN SEMUA LAYER DESA MENJADI SATU ---
+        const allJsonData = [
+            json_Pacitan_1, json_Ponorogo_2, json_Trenggalek_3, json_Tulungagung_4, json_Blitar_5, json_KotaBlitar_6,
+            json_Kediri_7, json_KotaKediri_8, json_Malang_9, json_KotaMalang_10, json_Lumajang_11, json_Jember_12,
+            json_Banyuwangi_13, json_Bondowoso_14, json_Situbondo_15, json_Probolinggo_16, json_KotaProbolinggo_17,
+            json_Pasuruan_18, json_KotaPasuruan_19, json_Sidoarjo_20, json_Mojokerto_21, json_KotaMojokerto_22,
+            json_Jombang_23, json_Ngajuk_24, json_Madiun_25, json_KotaMadiun_26, json_Magetan_27, json_Ngawi_28,
+            json_Bojonegoro_29, json_Tuban_30, json_Lamongan_31, json_Gresik_32, json_Bangkalan_33, json_Sampang_34,
+            json_Pamekasan_35, json_Sumenep_36, json_Surabaya_37, json_Batu_38
+        ];
+        
+        const allStyleFunctions = [
+            style_Pacitan_1, style_Ponorogo_2, style_Trenggalek_3, style_Tulungagung_4, style_Blitar_5, style_KotaBlitar_6,
+            style_Kediri_7, style_KotaKediri_8, style_Malang_9, style_KotaMalang_10, style_Lumajang_11, style_Jember_12,
+            style_Banyuwangi_13, style_Bondowoso_14, style_Situbondo_15, style_Probolinggo_16, style_KotaProbolinggo_17,
+            style_Pasuruan_18, style_KotaPasuruan_19, style_Sidoarjo_20, style_Mojokerto_21, style_KotaMojokerto_22,
+            style_Jombang_23, style_Ngajuk_24, style_Madiun_25, style_KotaMadiun_26, style_Magetan_27, style_Ngawi_28,
+            style_Bojonegoro_29, style_Tuban_30, style_Lamongan_31, style_Gresik_32, style_Bangkalan_33, style_Sampang_34,
+            style_Pamekasan_35, style_Sumenep_36, style_Surabaya_37, style_Batu_38
+        ];
 
-        // Ambil semua layer dari peta, lalu filter untuk mendapatkan HANYA layer kabupaten
-        const kabupatenLayers = map.getLayers().getArray().filter(layer => {
-            const title = layer.get('title');
-            // Asumsi: layer kabupaten adalah layer vektor yang judulnya BUKAN 'BatasKabupaten' atau basemap
-            return title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector;
+        let allDesaFeatures = [];
+        allJsonData.forEach((jsonData, index) => {
+            if (typeof jsonData !== 'undefined') {
+                const format = new ol.format.GeoJSON();
+                const features = format.readFeatures(jsonData, {
+                    dataProjection: 'EPSG:4326',
+                    featureProjection: 'EPSG:3857'
+                });
+                const styleFunction = allStyleFunctions[index];
+                features.forEach(feature => {
+                    feature.set('original_style', styleFunction);
+                    allDesaFeatures.push(feature);
+                });
+            }
+        });
+        
+        map.getLayers().forEach(layer => {
+            if (layer.get('title') !== 'BatasKabupaten' && layer !== map.getLayers().getArray()[0]) {
+                layer.setVisible(false);
+            }
         });
 
-        // Simpan extent awal untuk tombol reset
-        let initialExtent = new ol.extent.createEmpty();
-        kabupatenLayers.forEach(layer => {
-            ol.extent.extend(initialExtent, layer.getSource().getExtent());
+        const desaSource = new ol.source.Vector({ features: allDesaFeatures });
+        const desaLayer = new ol.layer.Vector({
+            source: desaSource,
+            style: (feature, resolution) => feature.get('original_style')(feature, resolution),
+            title: 'Semua Desa'
         });
-
-        const overlay = new ol.Overlay({ element: popupContainer, autoPan: true, autoPanAnimation: { duration: 250 } });
-        map.addOverlay(overlay);
-        popupCloser.onclick = function() { overlay.setPosition(undefined); popupCloser.blur(); return false; };
+        map.addLayer(desaLayer);
+        console.log(`Berhasil menggabungkan ${allDesaFeatures.length} desa.`);
 
         // --- 2. FUNGSI PENCARIAN & RESET ---
+        const searchInput = document.getElementById('search-input');
+        const resetButton = document.getElementById('btn-reset');
+        
         function resetMapView() {
             searchInput.value = '';
-            kabupatenLayers.forEach(layer => layer.setVisible(true));
-            map.getView().fit(initialExtent, { padding: [50, 50, 50, 50], duration: 500 });
+            desaSource.clear();
+            desaSource.addFeatures(allDesaFeatures);
+            map.getView().fit(desaSource.getExtent(), { padding: [50, 50, 50, 50], duration: 500 });
         }
 
         function searchAndFilter(searchTerm) {
@@ -230,21 +262,16 @@
                 return;
             }
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
-            let foundFeatures = [];
-            
-            kabupatenLayers.forEach(layer => {
-                const layerTitle = (layer.get('title') || '').toLowerCase();
-                if (layerTitle.includes(lowerCaseSearchTerm)) {
-                    layer.setVisible(true);
-                    foundFeatures = foundFeatures.concat(layer.getSource().getFeatures());
-                } else {
-                    layer.setVisible(false);
-                }
+            const filteredFeatures = allDesaFeatures.filter(feature => {
+                const namaKab = (feature.get('WADMKK') || '').toLowerCase();
+                return namaKab.includes(lowerCaseSearchTerm);
             });
 
-            if (foundFeatures.length > 0) {
-                const tempSource = new ol.source.Vector({ features: foundFeatures });
-                map.getView().fit(tempSource.getExtent(), { padding: [50, 50, 50, 50], maxZoom: 11, duration: 500 });
+            desaSource.clear();
+            desaSource.addFeatures(filteredFeatures);
+
+            if (filteredFeatures.length > 0) {
+                map.getView().fit(desaSource.getExtent(), { padding: [50, 50, 50, 50], maxZoom: 11, duration: 500 });
             } else {
                 alert('Kabupaten/Kota tidak ditemukan.');
                 resetMapView();
@@ -260,36 +287,46 @@
         resetButton.addEventListener('click', resetMapView);
 
         // --- 3. FUNGSI HOVER DAN POPUP ---
+        const popupContainer = document.getElementById('popup');
+        const popupContent = document.getElementById('popup-content');
+        const popupCloser = document.getElementById('popup-closer');
+        const overlay = new ol.Overlay({ element: popupContainer, autoPan: true, autoPanAnimation: { duration: 250 } });
+        map.addOverlay(overlay);
+        popupCloser.onclick = function() { overlay.setPosition(undefined); popupCloser.blur(); return false; };
+
         function safeValue(value, decimalPlaces = 4) {
             if (value === null || typeof value === 'undefined' || value === '') return '-';
             if (typeof value === 'number') return value.toFixed(decimalPlaces);
             return value;
         }
 
-        // --- INTERAKSI HOVER (TERPISAH) ---
-        const hoverInteraction = new ol.interaction.Select({
-            condition: ol.events.condition.pointerMove,
-            layers: kabupatenLayers, // Target semua layer kabupaten
-            style: new ol.style.Style({
-                stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
-                fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.4)' })
-            })
-        });
-        map.addInteraction(hoverInteraction);
-        // Mengubah kursor saat hover
-        hoverInteraction.on('select', function(e) {
-             map.getTargetElement().style.cursor = e.selected.length > 0 ? 'pointer' : '';
-        });
+        let hoveredFeature = null;
+        map.on('pointermove', function(e) {
+            if (e.dragging) return;
 
-
-        // --- INTERAKSI POPUP (TERPISAH) ---
-        map.on('singleclick', function(evt) {
-            overlay.setPosition(undefined); // Selalu tutup popup lama saat klik baru
-            
-            const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => {
-                // Pastikan feature yang diklik berasal dari salah satu layer kabupaten kita
-                return kabupatenLayers.includes(l) ? f : null;
+            const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, function(f, l) {
+                return l === desaLayer ? f : null;
             });
+
+            if (featureAtPixel !== hoveredFeature) {
+                if (hoveredFeature) {
+                    hoveredFeature.setStyle(hoveredFeature.get('original_style')(hoveredFeature, map.getView().getResolution()));
+                }
+                if (featureAtPixel) {
+                    featureAtPixel.setStyle(new ol.style.Style({
+                        stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
+                        fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
+                    }));
+                }
+                hoveredFeature = featureAtPixel;
+            }
+            map.getTargetElement().style.cursor = hoveredFeature ? 'pointer' : '';
+        });
+
+        map.on('singleclick', function(evt) {
+            // Logika popup sekarang independen dari hover
+            overlay.setPosition(undefined);
+            const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
             
             if (feature) {
                 try {
@@ -321,7 +358,7 @@
 
     // --- MEKANISME PALING STABIL UNTUK MENUNGGU PETA SIAP ---
     const mapReadyCheck = setInterval(function() {
-        if (typeof map !== 'undefined' && typeof ol !== 'undefined') {
+        if (typeof map !== 'undefined' && typeof ol !== 'undefined' && typeof json_Pacitan_1 !== 'undefined' && typeof style_Pacitan_1 !== 'undefined') {
             clearInterval(mapReadyCheck);
             initializeCustomFeatures();
         }
