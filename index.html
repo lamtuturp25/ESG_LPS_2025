@@ -87,24 +87,20 @@
       white-space: nowrap;
     }
 
-    /* --- STYLE POPUP (DIPERBAIKI) --- */
+    /* --- STYLE POPUP (DIREVISI & DISIMPLIFY) --- */
     .ol-popup {
       position: absolute;
       background-color: white;
-      box-shadow: 0 1px 8px rgba(0,0,0,0.25);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
       padding: 12px 14px;
       border-radius: 8px;
       border: 1px solid #cccccc;
       min-width: 260px;
       font-size: 13px;
-      transform: translate(-50%, -100%); /* centered above click */
-      z-index: 10000; /* pastikan di atas semua layer */
+      z-index: 10000;
       pointer-events: auto;
+      /* Dihapus: transform, karena sudah diatur oleh ol.Overlay.positioning */
     }
-    /* pastikan hanya satu closer terlihat (jika ada duplikat dari library, sembunyikan yang ekstra) */
-    .ol-popup .ol-popup-closer { display: block; }
-    .ol-popup .ol-popup-closer.extra { display: none !important; }
-
     .ol-popup-closer {
       text-decoration: none;
       position: absolute;
@@ -140,14 +136,12 @@
       color: #333;
       width: 150px;
     }
-
-    /* small screens: make popup narrower */
     @media (max-width: 420px) {
       .ol-popup { min-width: 200px; font-size: 12px; }
       .popup-table td:first-child { width: 120px; }
     }
   </style>
-  <title>Peta Persebaran ESG Jawa Timur</title>
+  <title>Peta Persebaran ESG Jawa Timur rev, ini dah jam berapa huhu</title>
 </head>
 <body>
   <div id="app-container">
@@ -180,7 +174,6 @@
     </div>
 
     <div id="map">
-      <!-- popup: hanya SATU elemen -->
       <div id="popup" class="ol-popup" style="display: none;">
         <button id="popup-closer" class="ol-popup-closer" aria-label="Tutup popup">✖</button>
         <div id="popup-content"></div>
@@ -188,7 +181,6 @@
     </div>
   </div>
 
-  <!-- Semua skrip asli dari qgis2web -->
   <script src="resources/qgis2web_expressions.js"></script>
   <script src="./resources/functions.js"></script>
   <script src="./resources/ol.js"></script>
@@ -199,9 +191,6 @@
   <script src="./resources/Autolinker.min.js"></script>
   <script src="./resources/qgis2web.js"></script>
   
-  <!-- ===================================================================== -->
-  <!-- ==========         SKRIP KUSTOM (VERSI FINAL & STABIL)       ========== -->
-  <!-- ===================================================================== -->
   <script>
     function initializeCustomFeatures() {
       console.log("Peta siap. Memulai skrip kustom.");
@@ -237,14 +226,12 @@
           });
           const styleFunction = allStyleFunctions[index];
           features.forEach(feature => {
-            // simpan referensi fungsi style asli (jika ada)
             feature.set('original_style', styleFunction);
             allDesaFeatures.push(feature);
           });
         }
       });
 
-      // sembunyikan layer-layer desa asli (kecuali layer batas kabupaten & base)
       map.getLayers().forEach(layer => {
         if (layer.get('title') !== 'BatasKabupaten' && layer !== map.getLayers().getArray()[0]) {
           layer.setVisible(false);
@@ -271,7 +258,6 @@
         searchInput.value = '';
         desaSource.clear();
         desaSource.addFeatures(allDesaFeatures);
-        // jika extent tidak valid, tangani
         const ext = desaSource.getExtent();
         if (ext && !isNaN(ext[0])) {
           map.getView().fit(ext, { padding: [50,50,50,50], duration: 500 });
@@ -312,21 +298,18 @@
       const popupContent = document.getElementById('popup-content');
       const popupCloser = document.getElementById('popup-closer');
 
-      // buat overlay popup dan tambahkan ke peta
       const overlay = new ol.Overlay({
         element: popupContainer,
         autoPan: true,
         autoPanAnimation: { duration: 250 },
         positioning: 'bottom-center',
-        offset: [0, -8] // sedikit lebih kecil offset agar lebih dekat ke polygon
+        offset: [0, -10] // Geser 10px ke atas dari titik anchor
       });
       map.addOverlay(overlay);
 
-      // handler close: sembunyikan popup
       popupCloser.addEventListener('click', function(evt) {
         evt.preventDefault();
         overlay.setPosition(undefined);
-        popupContainer.style.display = 'none';
         popupCloser.blur();
         return false;
       });
@@ -334,57 +317,39 @@
       function safeValue(value, decimalPlaces = 2) {
         if (value === null || typeof value === 'undefined' || value === '') return '-';
         if (typeof value === 'number') return value.toFixed(decimalPlaces);
-        // jika string angka
         const num = parseFloat(value);
-        if (!isNaN(num)) return num.toFixed(decimalPlaces);
-        return value;
+        return !isNaN(num) ? num.toFixed(decimalPlaces) : value;
       }
 
       let hoveredFeature = null;
       const hoverStyle = new ol.style.Style({
         stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
-        fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.5)' })
+        fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
       });
 
       map.on('pointermove', function(e) {
         if (e.dragging) return;
-
-        const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, function(f, layer) {
-          if (!f) return null;
-          // jika feature berasal dari gabungan desa (memiliki original_style) atau layer berjudul 'Semua Desa'
-          if (f.get('original_style')) return f;
-          if (layer && layer.get && layer.get('title') === 'Semua Desa') return f;
-          return null;
-        });
+        const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, (f) => f.get('original_style') ? f : null);
 
         if (hoveredFeature && hoveredFeature !== featureAtPixel) {
           hoveredFeature.setStyle(null);
-          hoveredFeature = null;
         }
-        if (featureAtPixel && featureAtPixel !== hoveredFeature) {
+        if (featureAtPixel) {
           featureAtPixel.setStyle(hoverStyle);
-          hoveredFeature = featureAtPixel;
         }
-
+        hoveredFeature = featureAtPixel;
         map.getTargetElement().style.cursor = hoveredFeature ? 'pointer' : '';
       });
 
       map.on('singleclick', function(evt) {
-        const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer) {
-          if (!f) return null;
-          if (f.get('original_style')) return f;
-          if (layer && layer.get && layer.get('title') === 'Semua Desa') return f;
-          return null;
-        });
+        const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f.get('original_style') ? f : null);
 
         if (feature) {
           try {
             const props = feature.getProperties();
-
-            // ambil titik paling dekat pada geometry terhadap titik klik
             const geom = feature.getGeometry();
-            // closestPoint memastikan popup dekat dengan polygon di titik yang diklik
-            const closest = geom.getClosestPoint(evt.coordinate);
+            // Ambil titik terdekat pada poligon dari lokasi klik
+            const closestPoint = geom.getClosestPoint(evt.coordinate);
 
             const clusterValue = parseInt(props['Cluster'], 10);
             const klasterText = !isNaN(clusterValue) ? `Klaster ${clusterValue + 1}` : 'Klaster -';
@@ -402,33 +367,24 @@
                 <tr><td>Nilai ESG</td><td>: ${safeValue(props['ESG'])}</td></tr>
               </table>
             `;
-
-            // pastikan tidak membuat duplicate closer jika library menambahkan closer lain
-            // (jika ada element closer lain punya class 'ol-popup-closer' di dalam popupContainer selain popupCloser, sembunyikan)
-            const closersInside = popupContainer.querySelectorAll('.ol-popup-closer');
-            closersInside.forEach(el => {
-              if (el !== popupCloser) el.classList.add('extra'); // CSS akan sembunyikan .extra
-            });
-
+            
             popupContent.innerHTML = content;
-            popupContainer.style.display = 'block';
-
-            // set position ke titik terdekat geometry agar popup muncul tepat di atas fitur
-            overlay.setPosition(closest);
-
+            // Posisikan overlay di titik terdekat, bukan di pusat fitur
+            overlay.setPosition(closestPoint);
+            
           } catch (err) {
             console.error("Error saat membuat konten popup:", err);
+            overlay.setPosition(undefined); // Sembunyikan jika ada error
           }
         } else {
-          // klik di luar feature -> tutup popup
+          // Klik di luar fitur, tutup popup
           overlay.setPosition(undefined);
-          popupContainer.style.display = 'none';
         }
       });
 
     } // end initializeCustomFeatures
 
-    // --- MEKANISME PALING STABIL UNTUK MENUNGGU PETA SIAP ---
+    // Mekanisme untuk menunggu peta siap sebelum menjalankan skrip kustom
     const mapReadyCheck = setInterval(function() {
       if (typeof map !== 'undefined' && typeof ol !== 'undefined' && typeof json_Pacitan_1 !== 'undefined' && typeof style_Pacitan_1 !== 'undefined') {
         clearInterval(mapReadyCheck);
