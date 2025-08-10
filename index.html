@@ -203,6 +203,7 @@
         // Ambil semua layer dari peta, lalu filter untuk mendapatkan HANYA layer kabupaten
         const kabupatenLayers = map.getLayers().getArray().filter(layer => {
             const title = layer.get('title');
+            // Asumsi: layer kabupaten adalah layer vektor yang judulnya BUKAN 'BatasKabupaten' atau basemap
             return title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector;
         });
 
@@ -265,34 +266,28 @@
             return value;
         }
 
-        let selectedFeatureForHover = null;
-        map.on('pointermove', function(e) {
-            if (e.dragging) return;
-
-            const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, function(f, l) {
-                return kabupatenLayers.includes(l) ? f : null;
-            });
-
-            if (featureAtPixel !== selectedFeatureForHover) {
-                if (selectedFeatureForHover) {
-                    selectedFeatureForHover.setStyle(undefined);
-                }
-                if (featureAtPixel) {
-                    featureAtPixel.setStyle(new ol.style.Style({
-                        stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
-                        fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
-                    }));
-                }
-                selectedFeatureForHover = featureAtPixel;
-            }
-            map.getTargetElement().style.cursor = selectedFeatureForHover ? 'pointer' : '';
+        // --- INTERAKSI HOVER (TERPISAH) ---
+        const hoverInteraction = new ol.interaction.Select({
+            condition: ol.events.condition.pointerMove,
+            layers: kabupatenLayers, // Target semua layer kabupaten
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
+                fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.4)' })
+            })
+        });
+        map.addInteraction(hoverInteraction);
+        // Mengubah kursor saat hover
+        hoverInteraction.on('select', function(e) {
+             map.getTargetElement().style.cursor = e.selected.length > 0 ? 'pointer' : '';
         });
 
+
+        // --- INTERAKSI POPUP (TERPISAH) ---
         map.on('singleclick', function(evt) {
-            // Logika popup sekarang independen dari hover.
-            // Ia akan melakukan pencarian baru setiap kali ada klik.
-            overlay.setPosition(undefined);
+            overlay.setPosition(undefined); // Selalu tutup popup lama saat klik baru
+            
             const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => {
+                // Pastikan feature yang diklik berasal dari salah satu layer kabupaten kita
                 return kabupatenLayers.includes(l) ? f : null;
             });
             
