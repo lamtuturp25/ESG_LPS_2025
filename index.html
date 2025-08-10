@@ -203,15 +203,15 @@
         // Ambil semua layer dari peta, lalu filter untuk mendapatkan HANYA layer kabupaten
         const kabupatenLayers = map.getLayers().getArray().filter(layer => {
             const title = layer.get('title');
+            // Asumsi: layer kabupaten adalah layer vektor yang judulnya BUKAN 'BatasKabupaten' atau basemap
             return title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector;
         });
 
-        // Buat satu sumber data (source) gabungan untuk efisiensi
-        const allDesaFeatures = kabupatenLayers.flatMap(layer => layer.getSource().getFeatures());
-        const combinedSource = new ol.source.Vector({ features: allDesaFeatures });
-
         // Simpan extent awal untuk tombol reset
-        const initialExtent = combinedSource.getExtent();
+        let initialExtent = new ol.extent.createEmpty();
+        kabupatenLayers.forEach(layer => {
+            ol.extent.extend(initialExtent, layer.getSource().getExtent());
+        });
 
         const overlay = new ol.Overlay({ element: popupContainer, autoPan: true, autoPanAnimation: { duration: 250 } });
         map.addOverlay(overlay);
@@ -220,9 +220,7 @@
         // --- 2. FUNGSI PENCARIAN & RESET ---
         function resetMapView() {
             searchInput.value = '';
-            // Tampilkan kembali semua layer kabupaten asli
             kabupatenLayers.forEach(layer => layer.setVisible(true));
-            // Sembunyikan layer gabungan jika ada (opsional, tergantung pendekatan)
             map.getView().fit(initialExtent, { padding: [50, 50, 50, 50], duration: 500 });
         }
 
@@ -234,7 +232,6 @@
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
             let foundFeatures = [];
             
-            // Sembunyikan semua layer, lalu tampilkan yang cocok
             kabupatenLayers.forEach(layer => {
                 const layerTitle = (layer.get('title') || '').toLowerCase();
                 if (layerTitle.includes(lowerCaseSearchTerm)) {
@@ -269,39 +266,33 @@
             return value;
         }
 
-        let selected = null; // Untuk menyimpan feature yang di-highlight
+        let hoveredFeature = null;
         map.on('pointermove', function(e) {
             if (e.dragging) return;
 
-            // Reset highlight pada feature sebelumnya
-            if (selected !== null) {
-                selected.setStyle(undefined);
-                selected = null;
-            }
+            const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, function(f, l) {
+                return kabupatenLayers.includes(l) ? f : null;
+            });
 
-            // Cari feature di bawah kursor mouse DARI LAYER YANG TERLIHAT
-            map.forEachFeatureAtPixel(e.pixel, function(f, l) {
-                if (kabupatenLayers.includes(l)) { // Pastikan feature berasal dari layer kabupaten
-                    selected = f;
-                    f.setStyle(new ol.style.Style({
+            if (featureAtPixel !== hoveredFeature) {
+                if (hoveredFeature) {
+                    hoveredFeature.setStyle(undefined);
+                }
+                if (featureAtPixel) {
+                    featureAtPixel.setStyle(new ol.style.Style({
                         stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
                         fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
                     }));
-                    return true; // Hentikan pencarian
                 }
-            });
-            map.getTargetElement().style.cursor = selected ? 'pointer' : '';
+                hoveredFeature = featureAtPixel;
+            }
+            map.getTargetElement().style.cursor = hoveredFeature ? 'pointer' : '';
         });
 
         map.on('singleclick', function(evt) {
-            overlay.setPosition(undefined);
-            const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => {
-                return kabupatenLayers.includes(l) ? f : null;
-            });
-            
-            if (feature) {
+            if (hoveredFeature) {
                 try {
-                    const props = feature.getProperties();
+                    const props = hoveredFeature.getProperties();
                     const clusterValue = parseInt(props['Cluster'], 10);
                     const klasterText = !isNaN(clusterValue) ? `Klaster ${clusterValue + 1}` : 'Klaster -';
 
@@ -322,7 +313,11 @@
                     overlay.setPosition(evt.coordinate);
                 } catch (err) {
                     console.error("Error saat membuat konten popup:", err);
+                    popupContent.innerHTML = "Gagal memuat data desa.";
+                    overlay.setPosition(evt.coordinate);
                 }
+            } else {
+                overlay.setPosition(undefined);
             }
         });
     };
