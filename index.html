@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Peta Kabupaten & Desa (Revisi)</title>
+  <title>Peta Kabupaten & Desa (Revisi Final)</title>
 
   <link rel="stylesheet" href="./resources/ol.css" />
   <link rel="stylesheet" href="resources/fontawesome-all.min.css" />
@@ -85,7 +85,6 @@
     button:active {
       background-color: #ccc;
     }
-
     /* Dropdown styling */
     select {
       appearance: none;
@@ -97,7 +96,6 @@
       background-size: 14px;
       padding-right: 30px;
     }
-
     /* Popup */
     .ol-popup {
       position: absolute;
@@ -265,7 +263,7 @@
         return (v === undefined || v === null || v === '') ? '-' : String(v);
       }
 
-      // Wait until 'map' and 'layersList' are initialized by qgis2web.js
+      // Wait until 'map' and other variables are initialized
       function waitForCondition(conditionFn, interval=100, timeout=10000){
         return new Promise((resolve)=>{
           const start = Date.now();
@@ -276,161 +274,192 @@
           })();
         });
       }
+      
+      // Kondisi yang ditunggu: pastikan variabel map dan SEMUA layer sudah dimuat.
+      const areAllVarsDefined = () => {
+          try {
+              return typeof map !== 'undefined' && typeof layer_Pacitan_1 !== 'undefined' && typeof layer_BatasKabupaten_39 !== 'undefined';
+          } catch (e) {
+              return false;
+          }
+      };
 
-      waitForCondition(() => typeof map !== 'undefined' && typeof layersList !== 'undefined').then(ok => {
+      waitForCondition(areAllVarsDefined).then(ok => {
         if(!ok){
-          alert('Peta atau layersList gagal dimuat.');
+          console.error('Peta atau variabel layer gagal dimuat. Periksa urutan pemanggilan file script dan pastikan tidak ada error di file layer (misal: layers/Pacitan_1.js).');
+          alert('Peta atau layer gagal dimuat. Silakan cek konsol (F12) untuk detail error.');
           return;
         }
 
-        // --- DEFINISI LAYER & VARIABEL GLOBAL ---
+        // --- 1. DEFINISI LAYER & VARIABEL GLOBAL ---
+
+        // Struktur data baru untuk menghubungkan nama & layer secara eksplisit
+        const kabupatenData = [
+            { name: 'Pacitan', layer: layer_Pacitan_1 },
+            { name: 'Ponorogo', layer: layer_Ponorogo_2 },
+            { name: 'Trenggalek', layer: layer_Trenggalek_3 },
+            { name: 'Tulungagung', layer: layer_Tulungagung_4 },
+            { name: 'Blitar', layer: layer_Blitar_5 },
+            { name: 'Kota Blitar', layer: layer_KotaBlitar_6 },
+            { name: 'Kediri', layer: layer_Kediri_7 },
+            { name: 'Kota Kediri', layer: layer_KotaKediri_8 },
+            { name: 'Malang', layer: layer_Malang_9 },
+            { name: 'Kota Malang', layer: layer_KotaMalang_10 },
+            { name: 'Lumajang', layer: layer_Lumajang_11 },
+            { name: 'Jember', layer: layer_Jember_12 },
+            { name: 'Banyuwangi', layer: layer_Banyuwangi_13 },
+            { name: 'Bondowoso', layer: layer_Bondowoso_14 },
+            { name: 'Situbondo', layer: layer_Situbondo_15 },
+            { name: 'Probolinggo', layer: layer_Probolinggo_16 },
+            { name: 'Kota Probolinggo', layer: layer_KotaProbolinggo_17 },
+            { name: 'Pasuruan', layer: layer_Pasuruan_18 },
+            { name: 'Kota Pasuruan', layer: layer_KotaPasuruan_19 },
+            { name: 'Sidoarjo', layer: layer_Sidoarjo_20 },
+            { name: 'Mojokerto', layer: layer_Mojokerto_21 },
+            { name: 'Kota Mojokerto', layer: layer_KotaMojokerto_22 },
+            { name: 'Jombang', layer: layer_Jombang_23 },
+            { name: 'Nganjuk', layer: layer_Ngajuk_24 }, // Nama variabel layer 'Ngajuk_24'
+            { name: 'Madiun', layer: layer_Madiun_25 },
+            { name: 'Kota Madiun', layer: layer_KotaMadiun_26 },
+            { name: 'Magetan', layer: layer_Magetan_27 },
+            { name: 'Ngawi', layer: layer_Ngawi_28 },
+            { name: 'Bojonegoro', layer: layer_Bojonegoro_29 },
+            { name: 'Tuban', layer: layer_Tuban_30 },
+            { name: 'Lamongan', layer: layer_Lamongan_31 },
+            { name: 'Gresik', layer: layer_Gresik_32 },
+            { name: 'Bangkalan', layer: layer_Bangkalan_33 },
+            { name: 'Sampang', layer: layer_Sampang_34 },
+            { name: 'Pamekasan', layer: layer_Pamekasan_35 },
+            { name: 'Sumenep', layer: layer_Sumenep_36 },
+            { name: 'Kota Surabaya', layer: layer_Surabaya_37 },
+            { name: 'Kota Batu', layer: layer_Batu_38 }
+        ];
+
+        const allKabupatenLayers = kabupatenData.map(d => d.layer);
+        const batasKabupatenLayer = layer_BatasKabupaten_39;
+
         const kabSelect = document.getElementById('kabupatenSelect');
         const searchInput = document.getElementById('searchDesa');
         const resetButton = document.getElementById('btnReset');
         const popupEl = document.getElementById('popup');
         const popupCloser = document.getElementById('popup-closer');
         const popupContent = document.getElementById('popup-content');
+        
         let hoverInteraction = null;
 
-        const kabupatenLayers = [
-          layer_Pacitan_1, layer_Ponorogo_2, layer_Trenggalek_3, layer_Tulungagung_4,
-          layer_Blitar_5, layer_KotaBlitar_6, layer_Kediri_7, layer_KotaKediri_8,
-          layer_Malang_9, layer_KotaMalang_10, layer_Lumajang_11, layer_Jember_12,
-          layer_Banyuwangi_13, layer_Bondowoso_14, layer_Situbondo_15, layer_Probolinggo_16,
-          layer_KotaProbolinggo_17, layer_Pasuruan_18, layer_KotaPasuruan_19, layer_Sidoarjo_20,
-          layer_Mojokerto_21, layer_KotaMojokerto_22, layer_Jombang_23, layer_Ngajuk_24,
-          layer_Madiun_25, layer_KotaMadiun_26, layer_Magetan_27, layer_Ngawi_28,
-          layer_Bojonegoro_29, layer_Tuban_30, layer_Lamongan_31, layer_Gresik_32,
-          layer_Bangkalan_33, layer_Sampang_34, layer_Pamekasan_35, layer_Sumenep_36,
-          layer_Surabaya_37, layer_Batu_38
-        ];
-        const batasKabupatenLayer = layer_BatasKabupaten_39;
+        // --- 2. SETUP AWAL (POPUP, HOVER STYLE) ---
 
-        // --- POPUP OVERLAY ---
         const overlay = new ol.Overlay({
           element: popupEl,
           autoPan: { animation: { duration: 250 } }
         });
         map.addOverlay(overlay);
-        popupCloser.onclick = function(){
+        popupCloser.onclick = () => {
           overlay.setPosition(undefined);
           popupCloser.blur();
           return false;
         };
 
-        // --- FUNGSI UTAMA ---
-
-        // Style untuk highlight saat hover
         const highlightStyle = new ol.style.Style({
             stroke: new ol.style.Stroke({ color: '#ffff00', width: 3 }),
             fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.4)' }),
             zIndex: 99 // Penting: agar highlight selalu di atas
         });
 
-        // Fungsi untuk mengaktifkan hover pada layer tertentu
-        function enableHoverOnLayer(layerOrLayers) {
-            if (hoverInteraction) map.removeInteraction(hoverInteraction);
-            if (!layerOrLayers) return;
+        // --- 3. FUNGSI-FUNGSI UTAMA ---
 
+        function enableHoverOnLayer(layers) {
+            if (hoverInteraction) map.removeInteraction(hoverInteraction);
+            if (!layers) return;
+            
             hoverInteraction = new ol.interaction.Select({
                 condition: ol.events.condition.pointerMove,
-                layers: Array.isArray(layerOrLayers) ? layerOrLayers : [layerOrLayers],
+                layers: Array.isArray(layers) ? layers : [layers],
                 style: highlightStyle
             });
             
             hoverInteraction.on('select', e => {
                 map.getTargetElement().style.cursor = e.selected.length > 0 ? 'pointer' : '';
             });
-
             map.addInteraction(hoverInteraction);
         }
 
-        // Fungsi untuk mereset tampilan peta ke awal
         function resetMapView() {
-            kabupatenLayers.forEach(lyr => lyr.setVisible(true));
+            allKabupatenLayers.forEach(lyr => lyr.setVisible(true));
             batasKabupatenLayer.setVisible(true);
 
-            try {
-                const combinedExtent = kabSelect.options[0].extent; // Gunakan extent yang sudah disimpan
-                if(combinedExtent) map.getView().fit(combinedExtent, { padding: [40, 40, 40, 40], maxZoom: 9, duration: 700 });
-            } catch (e) {
-                console.warn('Gagal set extent gabungan kabupaten', e);
+            const combinedExtent = kabSelect.options[0].extent;
+            if (combinedExtent) {
+                map.getView().fit(combinedExtent, { padding: [40, 40, 40, 40], maxZoom: 9, duration: 700 });
             }
             
-            enableHoverOnLayer(kabupatenLayers);
+            enableHoverOnLayer(allKabupatenLayers);
             overlay.setPosition(undefined);
             kabSelect.value = '';
             searchInput.value = '';
         }
-        
-        // --- INISIALISASI PETA & KONTROL ---
 
-        // 1. Isi dropdown dan simpan extent setiap layer
+        // --- 4. INISIALISASI PETA & KONTROL ---
+
+        // Isi dropdown dari struktur data `kabupatenData`
         kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
         let combinedExtent = ol.extent.createEmpty();
-        kabupatenLayers.forEach((lyr, i) => {
-            const title = lyr.get('title') || `Kabupaten ${i+1}`;
+        kabupatenData.forEach((item, index) => {
             const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = title;
-            const extent = lyr.getSource().getExtent();
-            if(extent && !ol.extent.isEmpty(extent)) {
-                opt.extent = extent; // Simpan extent di elemen option
+            opt.value = index;
+            opt.textContent = item.name;
+            const extent = item.layer.getSource().getExtent();
+            if (extent && !ol.extent.isEmpty(extent)) {
+                opt.extent = extent;
                 ol.extent.extend(combinedExtent, extent);
             }
             kabSelect.appendChild(opt);
         });
-        // Simpan extent gabungan di option pertama
+
         if (!ol.extent.isEmpty(combinedExtent)) {
             kabSelect.options[0].extent = combinedExtent;
         }
 
-        // 2. Atur tampilan awal
-        resetMapView();
+        resetMapView(); // Atur tampilan awal peta
 
-        // --- EVENT LISTENERS ---
+        // --- 5. EVENT LISTENERS ---
 
-        // Handle perubahan dropdown kabupaten
-        kabSelect.addEventListener('change', function(){
+        kabSelect.addEventListener('change', function() {
             const selectedIndex = this.value;
-
             if (selectedIndex === '') {
                 resetMapView();
                 return;
             }
 
             const idx = parseInt(selectedIndex, 10);
-            const selectedLayer = kabupatenLayers[idx];
+            const selectedItem = kabupatenData[idx];
             
-            // Tampilkan layer yang dipilih, sembunyikan yang lain
-            kabupatenLayers.forEach((lyr, i) => {
+            allKabupatenLayers.forEach((lyr, i) => {
                 lyr.setVisible(i === idx);
             });
 
-            // Zoom ke kabupaten yang dipilih
             const extent = this.options[this.selectedIndex].extent;
             if (extent) {
                 map.getView().fit(extent, { padding: [50, 50, 50, 50], maxZoom: 12, duration: 500 });
             }
 
-            enableHoverOnLayer(selectedLayer);
-            overlay.setPosition(undefined); // Sembunyikan popup
+            enableHoverOnLayer(selectedItem.layer);
+            overlay.setPosition(undefined);
         });
 
-        // Handle klik pada peta untuk menampilkan popup
+        resetButton.addEventListener('click', resetMapView);
+        
         map.on('singleclick', function(evt){
             let featureFound = null;
-            // Cari feature hanya pada layer yang sedang terlihat
             map.forEachFeatureAtPixel(evt.pixel, (feature, layer) => {
-                if (kabupatenLayers.includes(layer) && layer.getVisible()) {
+                if (allKabupatenLayers.includes(layer) && layer.getVisible()) {
                     featureFound = feature;
-                    return true; // Stop searching
+                    return true;
                 }
             });
 
             if (featureFound) {
                 const props = featureFound.getProperties();
-                // Utamakan nama desa (NAME_3/NAMA_DESA), fallback ke nama kabupaten (NAME_2)
                 const name = props['NAME_3'] || props['NAMA_DESA'] || props['NAMOBJ'] || props['NAME_2'];
                 const html = `<strong>Desa/Kel:</strong> ${safeText(name)}<br><strong>Kab/Kota:</strong> ${safeText(props['NAME_2'])}`;
                 
@@ -441,24 +470,22 @@
             }
         });
 
-        // Handle pencarian desa
         searchInput.addEventListener('keydown', function(evt){
             if (evt.key !== 'Enter') return;
             const searchText = this.value.trim().toLowerCase();
             if (!searchText) return;
 
-            const visibleLayers = kabupatenLayers.filter(lyr => lyr.getVisible());
+            const visibleLayers = allKabupatenLayers.filter(lyr => lyr.getVisible());
             if (visibleLayers.length !== 1) {
                 alert('Pilih satu kabupaten/kota terlebih dahulu untuk melakukan pencarian desa.');
                 return;
             }
-            
+
             const activeLayer = visibleLayers[0];
             const source = activeLayer.getSource();
             let foundFeature = null;
 
             for(const feature of source.getFeatures()){
-                // Sesuaikan 'NAME_3' dengan nama kolom desa/kelurahan di data Anda
                 const namaDesa = (feature.get('NAME_3') || feature.get('NAMA_DESA') || feature.get('NAMOBJ') || '').toLowerCase();
                 if (namaDesa.includes(searchText)) {
                     foundFeature = feature;
@@ -471,7 +498,6 @@
                 const extent = geom.getExtent();
                 map.getView().fit(extent, { padding: [100, 100, 100, 100], maxZoom: 15, duration: 700 });
                 
-                // Tampilkan popup untuk feature yang ditemukan
                 const props = foundFeature.getProperties();
                 const name = props['NAME_3'] || props['NAMA_DESA'] || props['NAMOBJ'] || props['NAME_2'];
                 const html = `<strong>Desa/Kel:</strong> ${safeText(name)}<br><strong>Kab/Kota:</strong> ${safeText(props['NAME_2'])}`;
@@ -483,10 +509,11 @@
             }
         });
 
-        // Handle tombol reset
-        resetButton.addEventListener('click', resetMapView);
+        console.log("Skrip peta kustom berhasil dimuat dan dijalankan.");
 
-      }); // end waitForCondition
+      }).catch(err => {
+        console.error("Terjadi error saat menunggu inisialisasi peta:", err);
+      });
 
     })();
   </script>
