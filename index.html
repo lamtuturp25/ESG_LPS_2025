@@ -54,75 +54,107 @@
   <script src="./resources/qgis2web.js"></script>
   
   <!-- ===================================================================== -->
-  <!-- ==========         SKRIP KUSTOM (VERSI FINAL)          ========== -->
+  <!-- ==========         SKRIP KUSTOM (LOGIKA BARU & STABIL)     ========== -->
   <!-- ===================================================================== -->
   <script>
     function initializeCustomFeatures() {
         console.log("Peta siap. Memulai skrip kustom.");
 
-        const kabSelect = document.getElementById('kabupatenSelect');
-        const resetButton = document.getElementById('btnReset');
-        
-        // --- 1. DETEKSI OTOMATIS & PENGISIAN DROPDOWN ---
-        const kabupatenLayers = map.getLayers().getArray().filter(layer => {
-            const title = layer.get('title');
-            // Asumsi: layer kabupaten adalah layer vektor yang judulnya BUKAN 'BatasKabupaten' atau basemap
-            return title && title !== 'BatasKabupaten' && layer instanceof ol.layer.Vector;
+        // --- 1. PENGGABUNGAN SEMUA LAYER DESA MENJADI SATU ---
+        const allOriginalLayers = [
+            layer_Pacitan_1, layer_Ponorogo_2, layer_Trenggalek_3, layer_Tulungagung_4, layer_Blitar_5, layer_KotaBlitar_6,
+            layer_Kediri_7, layer_KotaKediri_8, layer_Malang_9, layer_KotaMalang_10, layer_Lumajang_11, layer_Jember_12,
+            layer_Banyuwangi_13, layer_Bondowoso_14, layer_Situbondo_15, layer_Probolinggo_16, layer_KotaProbolinggo_17,
+            layer_Pasuruan_18, layer_KotaPasuruan_19, layer_Sidoarjo_20, layer_Mojokerto_21, layer_KotaMojokerto_22,
+            layer_Jombang_23, layer_Ngajuk_24, layer_Madiun_25, layer_KotaMadiun_26, layer_Magetan_27, layer_Ngawi_28,
+            layer_Bojonegoro_29, layer_Tuban_30, layer_Lamongan_31, layer_Gresik_32, layer_Bangkalan_33, layer_Sampang_34,
+            layer_Pamekasan_35, layer_Sumenep_36, layer_Surabaya_37, layer_Batu_38
+        ];
+
+        let allDesaFeatures = [];
+        let daftarKabupaten = new Set(); // Menggunakan Set untuk menghindari duplikat
+
+        allOriginalLayers.forEach(layer => {
+            const source = layer.getSource();
+            if (source) {
+                const features = source.getFeatures();
+                features.forEach(feature => {
+                    // Simpan style asli pada setiap feature
+                    feature.set('original_style', layer.getStyle());
+                    allDesaFeatures.push(feature);
+                    // Ambil nama kabupaten dari field WADMKK
+                    const namaKab = feature.get('WADMKK');
+                    if (namaKab) {
+                        daftarKabupaten.add(namaKab);
+                    }
+                });
+                // Sembunyikan layer asli setelah datanya diambil
+                layer.setVisible(false);
+            }
         });
 
-        if (kabupatenLayers.length === 0) {
-            console.error("Tidak ada layer kabupaten yang terdeteksi secara otomatis.");
-            kabSelect.innerHTML = '<option>Error: Layer tidak ditemukan</option>';
-            return;
-        }
+        // Buat satu layer gabungan untuk semua desa
+        const desaSource = new ol.source.Vector({
+            features: allDesaFeatures
+        });
+        const desaLayer = new ol.layer.Vector({
+            source: desaSource,
+            style: function(feature) {
+                // Gunakan style asli yang sudah kita simpan
+                return feature.get('original_style');
+            },
+            title: 'Semua Desa' // Beri judul internal
+        });
+        map.addLayer(desaLayer);
+        console.log(`Berhasil menggabungkan ${allDesaFeatures.length} desa menjadi satu layer.`);
 
-        // Urutkan layer berdasarkan judulnya secara alfabet
-        kabupatenLayers.sort((a, b) => a.get('title').localeCompare(b.get('title')));
+        // --- 2. PENGISIAN DROPDOWN ---
+        const kabSelect = document.getElementById('kabupatenSelect');
+        const resetButton = document.getElementById('btnReset');
+        const sortedKabupaten = Array.from(daftarKabupaten).sort();
 
         kabSelect.innerHTML = '<option value="">-- Semua Kabupaten --</option>';
-        kabupatenLayers.forEach(layer => {
-            const title = layer.get('title');
-            const opt = document.createElement('option');
-            opt.value = title;
-            opt.textContent = title.replace(/([A-Z])/g, ' $1').trim(); 
+        sortedKabupaten.forEach(nama => {
+            const opt = document.createElement('option');
+            opt.value = nama;
+            opt.textContent = nama;
             kabSelect.appendChild(opt);
         });
-        console.log(`Dropdown berhasil diisi dengan ${kabupatenLayers.length} kabupaten/kota.`);
+        console.log(`Dropdown berhasil diisi dengan ${sortedKabupaten.length} kabupaten/kota.`);
 
-        // --- 2. FUNGSI UNTUK MENGONTROL PETA ---
-        function setLayerVisibility(selectedTitle) {
-            let targetLayer = null;
-            kabupatenLayers.forEach(layer => {
-                const isVisible = (layer.get('title') === selectedTitle);
-                layer.setVisible(isVisible);
-                if (isVisible) { targetLayer = layer; }
+        // --- 3. FUNGSI UNTUK MENGONTROL PETA ---
+        function filterDesaByKabupaten(selectedKab) {
+            // Filter features yang akan ditampilkan
+            const filteredFeatures = allDesaFeatures.filter(feature => {
+                return feature.get('WADMKK') === selectedKab;
             });
-            return targetLayer;
+            // Perbarui source dengan features yang sudah difilter
+            desaSource.clear();
+            desaSource.addFeatures(filteredFeatures);
+            // Zoom ke extent features yang difilter
+            if (filteredFeatures.length > 0) {
+                map.getView().fit(desaSource.getExtent(), { padding: [50, 50, 50, 50], maxZoom: 12, duration: 500 });
+            }
         }
         
         function resetMapView() {
-            kabupatenLayers.forEach(layer => layer.setVisible(true));
+            desaSource.clear();
+            desaSource.addFeatures(allDesaFeatures);
             kabSelect.value = '';
         }
 
-        // --- 3. MEMBERI PERINTAH PADA TOMBOL DAN DROPDOWN ---
+        // --- 4. MEMBERI PERINTAH PADA TOMBOL DAN DROPDOWN ---
         kabSelect.addEventListener('change', function() {
             const selectedName = this.value;
             if (selectedName === '') {
                 resetMapView();
-                return;
-            }
-            const targetLayer = setLayerVisibility(selectedName);
-            if (targetLayer) {
-                const source = targetLayer.getSource();
-                if(source && source.getExtent()){
-                    map.getView().fit(source.getExtent(), { padding: [50, 50, 50, 50], maxZoom: 12, duration: 500 });
-                }
-            }
+            } else {
+                filterDesaByKabupaten(selectedName);
+            }
         });
         resetButton.addEventListener('click', resetMapView);
 
-        // --- 4. FUNGSI HOVER DAN POPUP ---
+        // --- 5. FUNGSI HOVER DAN POPUP (SEKARANG BEKERJA DI LEVEL DESA) ---
         const popupContainer = document.getElementById('popup');
         const popupContent = document.getElementById('popup-content');
         const popupCloser = document.getElementById('popup-closer');
@@ -137,26 +169,26 @@
         }
 
         map.on('singleclick', function(evt) {
-            overlay.setPosition(undefined); // Sembunyikan popup dulu
-            const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+            overlay.setPosition(undefined);
+            const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
             if (feature) {
                 const props = feature.getProperties();
-                // Pastikan feature yang diklik adalah bagian dari layer kabupaten kita
-                const layerOfFeature = map.forEachLayerAtPixel(evt.pixel, l => l);
-                if (kabupatenLayers.includes(layerOfFeature)) {
-                    const clusterValue = parseInt(props['Cluster'], 10);
-                    const klaster = !isNaN(clusterValue) ? clusterValue + 1 : '-';
-                    const content = `
-                        <strong>Nama Desa:</strong> ${safeValue(props['NAMOBJ'])}<br>
-                        <strong>Kabupaten:</strong> ${safeValue(props['WADMKK'])}<br>
-                        <strong>E:</strong> ${safeValue(props['E'])}<br>
-                        <strong>S:</strong> ${safeValue(props['S'])}<br>
-                        <strong>G:</strong> ${safeValue(props['G'])}<br>
-                        <strong>ESG:</strong> ${safeValue(props['ESG'])}<br>
-                        <strong>Klaster:</strong> ${klaster}`;
-                    popupContent.innerHTML = content;
-                    overlay.setPosition(evt.coordinate);
-                }
+                // Logika baru yang lebih jelas untuk menghitung Klaster
+                const clusterFromData = props['Cluster']; // Ambil nilai mentah dari field 'Cluster'
+                const clusterNumber = parseInt(clusterFromData, 10); // Coba ubah menjadi angka
+                // Jika berhasil diubah menjadi angka, tambah 1. Jika tidak, tampilkan nilai aslinya.
+                const displayedKlaster = !isNaN(clusterNumber) ? clusterNumber + 1 : safeValue(clusterFromData);
+
+                const content = `
+                    <strong>Nama Desa:</strong> ${safeValue(props['NAMOBJ'])}<br>
+                    <strong>Kabupaten:</strong> ${safeValue(props['WADMKK'])}<br>
+                    <strong>E:</strong> ${safeValue(props['E'])}<br>
+                    <strong>S:</strong> ${safeValue(props['S'])}<br>
+                    <strong>G:</strong> ${safeValue(props['G'])}<br>
+                    <strong>ESG:</strong> ${safeValue(props['ESG'])}<br>
+                    <strong>Klaster:</strong> ${displayedKlaster}`;
+                popupContent.innerHTML = content;
+                overlay.setPosition(evt.coordinate);
             }
         });
 
@@ -168,10 +200,12 @@
 
         map.on('pointermove', function(e) {
             if (e.dragging) return;
-            if (selected !== null) { selected.setStyle(undefined); selected = null; }
+            if (selected !== null) {
+                selected.setStyle(selected.get('original_style')); // Kembalikan ke style asli
+                selected = null;
+            }
             map.forEachFeatureAtPixel(e.pixel, function(f, l) {
-                // Hanya highlight feature yang merupakan bagian dari layer kabupaten
-                if (kabupatenLayers.includes(l)) {
+                if (l === desaLayer) { // Hanya highlight feature dari layer desa gabungan
                     selected = f;
                     f.setStyle(highlightStyle);
                     return true;
