@@ -145,56 +145,63 @@
 
         let allDesaFeatures = [];
         allOriginalLayers.forEach(layer => {
-            const source = layer.getSource();
-            if (source) {
-                const features = source.getFeatures();
-                features.forEach(feature => {
-                    feature.set('original_style', layer.getStyle());
-                    allDesaFeatures.push(feature);
-                });
-                layer.setVisible(false); // Sembunyikan layer asli
+            // Pastikan layer ada sebelum mengambil source
+            if (layer && typeof layer.getSource === 'function') {
+                const source = layer.getSource();
+                if (source && typeof source.getFeatures === 'function') {
+                    const features = source.getFeatures();
+                    features.forEach(feature => {
+                        // Simpan style asli pada setiap feature agar bisa dikembalikan saat hover selesai
+                        feature.set('original_style', layer.getStyle());
+                        allDesaFeatures.push(feature);
+                    });
+                }
+                // Sembunyikan layer asli setelah datanya diambil
+                layer.setVisible(false);
             }
         });
 
+        // Buat satu layer gabungan untuk semua desa
         const desaSource = new ol.source.Vector({ features: allDesaFeatures });
         const desaLayer = new ol.layer.Vector({
             source: desaSource,
+            // Style layer akan diambil dari properti 'original_style' di setiap feature
             style: (feature) => feature.get('original_style'),
-            title: 'Semua Desa'
+            title: 'Semua Desa' // Beri judul internal
         });
         map.addLayer(desaLayer);
-        console.log(`Berhasil menggabungkan ${allDesaFeatures.length} desa.`);
+        console.log(`Berhasil menggabungkan ${allDesaFeatures.length} desa menjadi satu layer.`);
 
         // --- 2. FUNGSI PENCARIAN ---
         const searchInput = document.getElementById('search-input');
         
         function searchAndFilter(searchTerm) {
             const lowerCaseSearchTerm = searchTerm.toLowerCase();
+            // Filter features yang akan ditampilkan berdasarkan nama kabupaten (WADMKK)
             const filteredFeatures = allDesaFeatures.filter(feature => {
                 const namaKab = (feature.get('WADMKK') || '').toLowerCase();
                 return namaKab.includes(lowerCaseSearchTerm);
             });
 
+            // Perbarui source dengan features yang sudah difilter
             desaSource.clear();
             desaSource.addFeatures(filteredFeatures);
 
             if (filteredFeatures.length > 0) {
+                // Zoom ke extent features yang difilter
                 map.getView().fit(desaSource.getExtent(), { padding: [50, 50, 50, 50], maxZoom: 11, duration: 500 });
             } else {
                 alert('Kabupaten/Kota tidak ditemukan.');
+                // Jika tidak ditemukan, tampilkan kembali semua desa
+                desaSource.clear();
+                desaSource.addFeatures(allDesaFeatures);
             }
         }
 
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 const searchTerm = this.value.trim();
-                if (searchTerm) {
-                    searchAndFilter(searchTerm);
-                } else {
-                    // Jika input kosong, reset
-                    desaSource.clear();
-                    desaSource.addFeatures(allDesaFeatures);
-                }
+                searchAndFilter(searchTerm);
             }
         });
 
@@ -214,6 +221,7 @@
 
         map.on('singleclick', function(evt) {
             overlay.setPosition(undefined);
+            // Cari feature HANYA dari layer desa gabungan kita
             const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
             if (feature) {
                 const props = feature.getProperties();
@@ -240,17 +248,21 @@
 
         map.on('pointermove', function(e) {
             if (e.dragging) return;
+            // Kembalikan style feature sebelumnya ke style aslinya
             if (selected !== null) {
                 selected.setStyle(selected.get('original_style'));
                 selected = null;
             }
+            // Cari feature baru di bawah kursor
             map.forEachFeatureAtPixel(e.pixel, function(f, l) {
+                // Hanya highlight feature yang merupakan bagian dari layer desa gabungan
                 if (l === desaLayer) {
                     selected = f;
                     f.setStyle(highlightStyle);
-                    return true;
+                    return true; // Hentikan pencarian
                 }
             });
+            // Ubah kursor
             map.getTargetElement().style.cursor = selected ? 'pointer' : '';
         });
     };
