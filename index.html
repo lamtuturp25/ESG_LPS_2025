@@ -140,7 +140,7 @@
 <body>
   <div id="app-container">
     <div id="sidebar">
-        <h1>Peta Persebaran ESG Jawa Timur Rev1</h1>
+        <h1>Peta Persebaran ESG Jawa Timur</h1>
         
         <div class="legend-section">
             <h2>Legend Klaster</h2>
@@ -300,42 +300,13 @@
             return value;
         }
 
-        // Variabel untuk menyimpan feature yang sedang di-hover
-        let hoveredFeature = null;
-
-        map.on('pointermove', function(e) {
-            if (e.dragging) return;
-            
-            // Cari feature baru di bawah kursor
-            const featureAtPixel = map.forEachFeatureAtPixel(e.pixel, function(f, l) {
-                return l === desaLayer ? f : null;
-            });
-
-            // Jika feature yang di-hover berubah
-            if (featureAtPixel !== hoveredFeature) {
-                // Kembalikan style feature lama (jika ada)
-                if (hoveredFeature) {
-                    hoveredFeature.setStyle(hoveredFeature.get('original_style')(hoveredFeature, map.getView().getResolution()));
-                }
-                // Simpan dan highlight feature baru
-                if (featureAtPixel) {
-                    featureAtPixel.setStyle(new ol.style.Style({
-                        stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
-                        fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
-                    }));
-                }
-                hoveredFeature = featureAtPixel;
-            }
-            // Ubah kursor
-            map.getTargetElement().style.cursor = hoveredFeature ? 'pointer' : '';
-        });
-
-        // Event listener untuk klik
         map.on('singleclick', function(evt) {
-            // Gunakan feature yang sudah dideteksi oleh 'pointermove'
-            if (hoveredFeature) {
+            overlay.setPosition(undefined);
+            const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
+            if (feature) {
                 try {
-                    const props = hoveredFeature.getProperties();
+                    const props = feature.getProperties();
+                    
                     const clusterValue = parseInt(props['Cluster'], 10);
                     const klasterText = !isNaN(clusterValue) ? `Klaster ${clusterValue + 1}` : 'Klaster -';
 
@@ -359,9 +330,29 @@
                     popupContent.innerHTML = "Gagal memuat data untuk desa ini.";
                     overlay.setPosition(evt.coordinate);
                 }
-            } else {
-                overlay.setPosition(undefined);
             }
+        });
+
+        let selected = null;
+        const highlightStyle = new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 0, 1.0)', width: 3 }),
+            fill: new ol.style.Fill({ color: 'rgba(255, 255, 0, 0.3)' })
+        });
+
+        map.on('pointermove', function(e) {
+            if (e.dragging) return;
+            if (selected !== null) {
+                selected.setStyle(selected.get('original_style')(selected, map.getView().getResolution()));
+                selected = null;
+            }
+            map.forEachFeatureAtPixel(e.pixel, function(f, l) {
+                if (l === desaLayer) {
+                    selected = f;
+                    f.setStyle(highlightStyle);
+                    return true;
+                }
+            });
+            map.getTargetElement().style.cursor = selected ? 'pointer' : '';
         });
     };
 
