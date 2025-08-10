@@ -301,11 +301,8 @@
         }
 
         map.on('singleclick', function(evt) {
-            // Sembunyikan popup terlebih dahulu
             overlay.setPosition(undefined);
-            // Cari feature HANYA dari layer desa gabungan kita
             const feature = map.forEachFeatureAtPixel(evt.pixel, (f, l) => l === desaLayer ? f : null);
-            
             if (feature) {
                 try {
                     const props = feature.getProperties();
