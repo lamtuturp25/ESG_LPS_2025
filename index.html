@@ -2,13 +2,13 @@
 <html lang="id">
 <head>
 <meta charset="utf-8" />
-<title>Peta Kabupaten/Kota - Dengan Sidebar, Dropdown, Legend, Hover & Popup</title>
+<title>Peta Kabupaten/Kota - Full</title>
 
 <!-- OpenLayers + LayerSwitcher CSS -->
 <link rel="stylesheet" href="resources/ol.css">
 <link rel="stylesheet" href="resources/ol-layerswitcher.css">
 
-<!-- Choices.js untuk dropdown searchable -->
+<!-- Choices.js CSS (searchable dropdown) -->
 <link rel="stylesheet" href="resources/choices.min.css">
 
 <style>
@@ -21,7 +21,7 @@
         top: 0;
         bottom: 0;
         width: var(--sidebar-width);
-        background: #ffffff;
+        background: #fff;
         border-right: 1px solid #ddd;
         padding: 12px;
         box-sizing: border-box;
@@ -36,49 +36,37 @@
     .legend-label { font-size: 13px; color: #222; }
 
     /* Map area */
-    #map {
-        position: absolute;
-        left: var(--sidebar-width);
-        top: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 0;
-    }
+    #map { position: absolute; left: var(--sidebar-width); top: 0; right: 0; bottom: 0; }
 
     /* Popup */
     .ol-popup {
         position: absolute;
         background-color: white;
         box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-        padding: 10px;
+        padding: 8px;
         border-radius: 4px;
         border: 1px solid #cccccc;
-        min-width: 180px;
+        min-width: 200px;
+        z-index:1200;
     }
-    .ol-popup-closer {
-        position: absolute;
-        top: 4px;
-        right: 6px;
-        text-decoration: none;
-        color: #333;
-    }
+    .ol-popup-closer { position: absolute; top: 4px; right: 6px; text-decoration: none; color: #333; }
     .popup-table { width:100%; border-collapse: collapse; font-size: 13px; }
-    .popup-table td:first-child { font-weight:600; padding-right:8px; vertical-align: top; }
+    .popup-table td:first-child { font-weight:600; padding-right:8px; vertical-align: top; width:40%; }
     .popup-cluster { display:inline-block; padding:4px 8px; border-radius:4px; color:#fff; font-weight:600; margin-left:6px; }
 </style>
 </head>
 <body>
 
-<!-- Sidebar kiri -->
+<!-- Sidebar -->
 <div id="sidebar">
     <h2>Pilih Kabupaten / Kota</h2>
     <select id="kabupatenSelect" placeholder="Pilih Kabupaten/Kota"></select>
 
     <div class="legend">
         <h3 style="font-size:14px; margin-bottom:8px;">Legend Klaster</h3>
-        <div class="legend-item"><div class="legend-color" style="background:#2ecc71;"></div><div class="legend-label">Klaster 1 (hijau)</div></div>
-        <div class="legend-item"><div class="legend-color" style="background:orange;"></div><div class="legend-label">Klaster 2 (oranye)</div></div>
-        <div class="legend-item"><div class="legend-color" style="background:red;"></div><div class="legend-label">Klaster 3 (merah)</div></div>
+        <div class="legend-item"><div class="legend-color" style="background:#85b66f;"></div><div class="legend-label">Klaster 1</div></div>
+        <div class="legend-item"><div class="legend-color" style="background:#fec980;"></div><div class="legend-label">Klaster 2</div></div>
+        <div class="legend-item"><div class="legend-color" style="background:#ff0900;"></div><div class="legend-label">Klaster 3</div></div>
     </div>
 </div>
 
@@ -90,15 +78,15 @@
     </div>
 </div>
 
-<!-- OpenLayers & plugins -->
+<!-- OpenLayers and plugins -->
 <script src="resources/ol.js"></script>
 <script src="resources/ol-layerswitcher.js"></script>
 
-<!-- qgis2web auxiliary -->
+<!-- qgis2web support -->
 <script src="resources/qgis2web_expressions.js"></script>
 <script src="resources/functions.js"></script>
 
-<!-- --- Semua layer & style hasil export (sesuaikan jika path berbeda) --- -->
+<!-- ALL LAYERS (full list) -->
 <script src="layers/Pacitan_1.js"></script>
 <script src="layers/Ponorogo_2.js"></script>
 <script src="layers/Trenggalek_3.js"></script>
@@ -139,7 +127,7 @@
 <script src="layers/Batu_38.js"></script>
 <script src="layers/BatasKabupaten_39.js"></script>
 
-<!-- styles -->
+<!-- ALL STYLES (full list) -->
 <script src="styles/Pacitan_1_style.js"></script>
 <script src="styles/Ponorogo_2_style.js"></script>
 <script src="styles/Trenggalek_3_style.js"></script>
@@ -184,95 +172,92 @@
 <script src="layers/layers.js"></script>
 <script src="resources/qgis2web.js"></script>
 
-<!-- Choices.js script -->
+<!-- Choices.js -->
 <script src="resources/choices.min.js"></script>
 
 <script>
-/* Main UI behaviour:
-   - Populate dropdown with only kabupaten/kota layers (uses popuplayertitle when available)
-   - Hover highlight in yellow
-   - Click popup with attributes and klaster name (Cluster + 1)
-   - Dropdown zoom to layer extent
-*/
+/* Full UI logic: populate dropdown, hover highlight, popup, dropdown-zoom, initial view to Surabaya */
 window.onload = function() {
-    // safety checks
-    if (typeof layersList === 'undefined' || typeof map === 'undefined') {
-        console.error("layersList atau map tidak tersedia. Pastikan layers.js dan qgis2web.js dimuat sebelum skrip ini.");
+    // Ensure map and layersList are available
+    if (typeof map === 'undefined' || typeof layersList === 'undefined') {
+        console.error('map atau layersList tidak ditemukan. Pastikan layers.js dan qgis2web.js sudah dimuat.');
         return;
     }
 
-    // Get sidebar elements
     const selectElem = document.getElementById('kabupatenSelect');
-    const popupContainer = document.getElementById('popup');
+    const popupEl = document.getElementById('popup');
     const popupContent = document.getElementById('popup-content');
     const popupCloser = document.getElementById('popup-closer');
 
-    // Get kabupaten/city layers: prefer popuplayertitle (clean name), exclude layers containing 'Batas' or 'Google Satellite'
+    // Build kabupatenLayers array: include vector layers that represent kabupaten/kota and exclude Batas / basemaps
     const kabupatenLayers = layersList.filter(l => {
-        const t = (l.get('popuplayertitle') || l.get('title') || '').toString();
-        if (!t) return false;
-        if (/Batas/i.test(t)) return false;
-        if (/Google Satellite/i.test(t)) return false;
-        // Many qgis2web titles include HTML; popuplayertitle is usually plain
+        const rawTitle = (l.get('popuplayertitle') || l.get('title') || '').toString();
+        if (!rawTitle) return false;
+        if (/Batas/i.test(rawTitle)) return false;
+        if (/Google Satellite/i.test(rawTitle)) return false;
+        // Exclude non-vector or WMS layers by checking source type
+        const src = l.getSource ? l.getSource() : null;
+        if (!src) return false;
+        // Good candidates are ol.source.Vector (but qgis2web uses ol.source.Vector)
+        const srcType = src.constructor && src.constructor.name ? src.constructor.name : '';
+        if (srcType.toLowerCase().indexOf('vector') === -1 && srcType.toLowerCase().indexOf('geojson') === -1) {
+            // still allow if getFeatures exists
+            if (typeof src.getFeatures !== 'function') return false;
+        }
         return true;
     });
 
-    // Build a clean list of names (unique)
-    const kabupatenItems = [];
+    // Derive display names (prefer popuplayertitle which is usually plain)
+    const kabupatenNames = [];
     kabupatenLayers.forEach(l => {
         const name = (l.get('popuplayertitle') || l.get('title') || '').toString();
-        if (name && kabupatenItems.indexOf(name) === -1) kabupatenItems.push(name);
+        if (name && kabupatenNames.indexOf(name) === -1) kabupatenNames.push(name);
     });
-    kabupatenItems.sort();
+    kabupatenNames.sort();
 
-    // Fill dropdown
-    kabupatenItems.forEach(name => {
+    // Populate dropdown
+    kabupatenNames.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
         opt.textContent = name;
         selectElem.appendChild(opt);
     });
 
-    // Initialize Choices (searchable dropdown)
-    const choices = new Choices(selectElem, { searchEnabled: true, itemSelectText: '' });
-
-    // Helper: find layer by popuplayertitle or title
-    function findLayerByName(name) {
-        return kabupatenLayers.find(l => {
-            const t = (l.get('popuplayertitle') || l.get('title') || '').toString();
-            return t === name;
-        });
+    // Initialize Choices (searchable)
+    try {
+        new Choices(selectElem, { searchEnabled: true, itemSelectText: '' });
+    } catch (e) {
+        console.warn('Choices initialization failed:', e);
     }
 
-    // Zoom to layer on dropdown change
-    selectElem.addEventListener('change', function(e) {
+    // helper: find layer by display name
+    function findLayerByName(displayName) {
+        return kabupatenLayers.find(l => ((l.get('popuplayertitle') || l.get('title') || '').toString()) === displayName);
+    }
+
+    // Dropdown change -> zoom to extent
+    selectElem.addEventListener('change', function() {
         const name = this.value;
         const layer = findLayerByName(name);
         if (!layer) return;
-        const src = layer.getSource();
-        // Some vector sources implement getExtent(); if not, compute from features
+        let src = layer.getSource();
         let extent = null;
+        // try getExtent
         try {
-            if (typeof src.getExtent === 'function') {
-                extent = src.getExtent();
-            }
+            if (typeof src.getExtent === 'function') extent = src.getExtent();
         } catch (err) { extent = null; }
         if (!extent || extent.every(v => v === 0)) {
-            // compute extent from features
-            const features = src.getFeatures ? src.getFeatures() : [];
-            if (features.length) {
-                extent = features[0].getGeometry().getExtent().slice();
-                for (let i=1;i<features.length;i++){
-                    ol.extent.extend(extent, features[i].getGeometry().getExtent());
-                }
+            // compute from features
+            const feats = (typeof src.getFeatures === 'function') ? src.getFeatures() : [];
+            if (feats && feats.length) {
+                extent = feats[0].getGeometry().getExtent().slice();
+                for (let i=1;i<feats.length;i++) ol.extent.extend(extent, feats[i].getGeometry().getExtent());
             }
         }
-        if (extent) {
-            map.getView().fit(extent, { duration: 800, padding: [60,60,60,60], maxZoom: 12 });
-        }
+        if (extent) map.getView().fit(extent, { padding: [80,80,80,80], duration: 800, maxZoom: 12 });
     });
 
-    // HOVER highlight (yellow) for all kabupatenLayers
+    // Hover highlight (yellow transparent)
     const hoverSelect = new ol.interaction.Select({
         condition: ol.events.condition.pointerMove,
         layers: kabupatenLayers,
@@ -283,30 +268,30 @@ window.onload = function() {
     });
     map.addInteraction(hoverSelect);
 
-    // Popup behaviour: show on singleclick feature from any kabupaten layer
+    // Popup overlay
     const overlay = new ol.Overlay({
-        element: popupContainer,
+        element: popupEl,
         autoPan: { animation: { duration: 250 } }
     });
     map.addOverlay(overlay);
 
-    popupCloser.onclick = function(evt) {
-        evt.preventDefault();
+    popupCloser && (popupCloser.onclick = function(e) {
+        e.preventDefault();
         overlay.setPosition(undefined);
-        popupContainer.style.display = 'none';
+        popupEl.style.display = 'none';
         popupCloser.blur();
         return false;
-    };
+    });
 
+    // On map click, find feature from kabupatenLayers and show popup
     map.on('singleclick', function(evt) {
-        // clear previous
+        // close previous
         overlay.setPosition(undefined);
-        popupContainer.style.display = 'none';
+        popupEl.style.display = 'none';
 
-        // Find top-most feature at pixel among kabupaten layers
+        // find feature at pixel (prioritize topmost)
         let found = null;
         map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-            // Accept only if layer is in our kabupatenLayers set
             if (kabupatenLayers.indexOf(layer) !== -1) {
                 if (!found) found = { feature: feature, layer: layer };
             }
@@ -315,39 +300,36 @@ window.onload = function() {
         if (!found) return;
 
         const f = found.feature;
-        const props = f.getProperties ? f.getProperties() : {};
-        // Fields based on your schema:
-        const namaObj = props['NAMOBJ'] ?? props['NAMOBJ'.toUpperCase()] ?? '';
+        const props = (typeof f.getProperties === 'function') ? f.getProperties() : {};
+
+        // Fields mapping based on your schema:
+        const namaObj = props['NAMOBJ'] ?? '';
         const desa = props['WADMKD'] ?? '';
         const kab = props['WADMKK'] ?? '';
         const E = props['E'] ?? '';
         const S = props['S'] ?? '';
         const G = props['G'] ?? '';
         const ESG = props['ESG'] ?? '';
-        // Cluster: data stores some integer -> show +1
+        // cluster: might be integer; show +1
         let clusterRaw = props['Cluster'];
         if (clusterRaw === undefined) clusterRaw = props['CLUSTER'] ?? props['cluster'] ?? null;
-        let clusterName = '';
-        let clusterColor = '#777';
+        let clusterName = '—';
+        let clusterColor = '#666';
         if (clusterRaw !== null && clusterRaw !== undefined && clusterRaw !== '') {
-            // try number
-            let cnum = Number(clusterRaw);
+            const cnum = Number(clusterRaw);
             if (isFinite(cnum)) {
-                const idx = cnum + 1; // add 1 as requested
+                const idx = cnum + 1;
                 clusterName = 'Klaster ' + idx;
-                // map color: 1 -> green, 2 -> orange, 3 -> red
-                if (idx === 1) clusterColor = '#2ecc71';
-                else if (idx === 2) clusterColor = 'orange';
-                else if (idx === 3) clusterColor = 'red';
+                if (idx === 1) clusterColor = '#85b66f';
+                else if (idx === 2) clusterColor = '#fec980';
+                else if (idx === 3) clusterColor = '#ff0900';
                 else clusterColor = '#666';
             } else {
                 clusterName = String(clusterRaw);
             }
-        } else {
-            clusterName = '—';
         }
 
-        // Build popup HTML (table)
+        // build popup html
         const html = `
             <table class="popup-table">
                 <tr><td>NAMOBJ</td><td>${escapeHtml(namaObj)}</td></tr>
@@ -357,17 +339,12 @@ window.onload = function() {
                 <tr><td>S</td><td>${formatNumber(S)}</td></tr>
                 <tr><td>G</td><td>${formatNumber(G)}</td></tr>
                 <tr><td>ESG</td><td>${formatNumber(ESG)}</td></tr>
-                <tr><td>Nama Klaster</td>
-                    <td>
-                        <span class="popup-cluster" style="background:${clusterColor}">${escapeHtml(clusterName)}</span>
-                    </td>
-                </tr>
+                <tr><td>Nama Klaster</td><td><span class="popup-cluster" style="background:${clusterColor}">${escapeHtml(clusterName)}</span></td></tr>
             </table>
         `;
         popupContent.innerHTML = html;
-        // show overlay at clicked coordinate
         overlay.setPosition(evt.coordinate);
-        popupContainer.style.display = 'block';
+        popupEl.style.display = 'block';
     });
 
     // small helpers
@@ -387,17 +364,37 @@ window.onload = function() {
         return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
     }
 
-    // OPTIONAL: set initial view to show whole province (fit bounds of all kabupaten)
-    try {
-        // combine extents of all kabupaten layers
+    // initial view: try to zoom to Surabaya layer if exists, otherwise fit extent of all kabupatenLayers
+    (function initialView() {
+        let surabayaLayer = kabupatenLayers.find(l => {
+            const t = (l.get('popuplayertitle') || l.get('title') || '').toString();
+            return /Surabaya/i.test(t);
+        });
+        let extent = null;
+        if (surabayaLayer) {
+            const src = surabayaLayer.getSource();
+            try { extent = src.getExtent(); } catch(e){ extent = null; }
+            if (!extent || extent.every(v=>v===0)) {
+                const feats = (typeof src.getFeatures === 'function') ? src.getFeatures() : [];
+                if (feats && feats.length) {
+                    extent = feats[0].getGeometry().getExtent().slice();
+                    for (let i=1;i<feats.length;i++) ol.extent.extend(extent, feats[i].getGeometry().getExtent());
+                }
+            }
+            if (extent) {
+                map.getView().fit(extent, { padding: [60,60,60,60] });
+                return;
+            }
+        }
+        // fallback: fit all kabupaten extents
         let fullExtent = null;
         kabupatenLayers.forEach(layer => {
             const src = layer.getSource();
             let ext = null;
-            try { ext = src.getExtent(); } catch (e) { ext = null; }
+            try { ext = src.getExtent(); } catch(e){ ext = null; }
             if (!ext || ext.every(v=>v===0)) {
-                const feats = src.getFeatures ? src.getFeatures() : [];
-                if (feats.length) {
+                const feats = (typeof src.getFeatures === 'function') ? src.getFeatures() : [];
+                if (feats && feats.length) {
                     ext = feats[0].getGeometry().getExtent().slice();
                     for (let i=1;i<feats.length;i++) ol.extent.extend(ext, feats[i].getGeometry().getExtent());
                 }
@@ -408,10 +405,9 @@ window.onload = function() {
             }
         });
         if (fullExtent) map.getView().fit(fullExtent, { padding: [80,80,80,80] });
-    } catch (e) { /* ignore */ }
+    })();
 
-    // End window.onload
-}; // window.onload
+}; // end window.onload
 </script>
 
 </body>
